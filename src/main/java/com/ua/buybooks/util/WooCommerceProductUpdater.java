@@ -1,7 +1,15 @@
-package com.ua.buybooks;
+package com.ua.buybooks.util;
 
-import okhttp3.*;
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+import okhttp3.Credentials;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 
 public class WooCommerceProductUpdater {
 

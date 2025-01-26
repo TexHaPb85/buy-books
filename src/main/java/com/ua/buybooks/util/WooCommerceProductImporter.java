@@ -1,4 +1,4 @@
-package com.ua.buybooks;
+package com.ua.buybooks.util;
 
 import okhttp3.*;
 import com.google.gson.*;
