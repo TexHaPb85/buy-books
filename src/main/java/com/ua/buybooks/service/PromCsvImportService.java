@@ -40,16 +40,18 @@ public class PromCsvImportService {
     private final Map<Long, ItemWP> itemCacheById = new ConcurrentHashMap<>();
     private final List<ItemWP> itemCacheByName = new ArrayList<>();
 
+    @Transactional
     public void processRecordsProm(List<CSVRecord> records) {
         System.out.println("🔄 Preloading items into cache...");
         preloadItemsFromDB();
 
         System.out.println("🚀 Processing " + records.size() + " records in parallel...");
-        ForkJoinPool customThreadPool = new ForkJoinPool(10); // Use 10 threads
-        customThreadPool.submit(() ->
-            records.parallelStream().forEach(this::processRecord)
-        ).join();
+//        ForkJoinPool customThreadPool = new ForkJoinPool(10); // Use 10 threads
+//        customThreadPool.submit(() ->
+//            records.parallelStream().forEach(this::processRecord)
+//        ).join();
 
+        records.forEach(this::processRecord);
         System.out.println("✅ Import completed.");
     }
 
@@ -65,14 +67,14 @@ public class PromCsvImportService {
     private void processRecord(CSVRecord record) {
         try {
             Long itemId = parseItemId(record);
-            String itemNameRu = normalizeText(record.get("Назва_позиції"));
+            String normalizedItemNameRu = normalizeText(record.get("Назва_позиції"));
 
             // 1️⃣ Search by ID
-            ItemWP matchedItem = findMatchingItemById(itemId, itemNameRu);
+            ItemWP matchedItem = findMatchingItemById(itemId, normalizedItemNameRu);
 
             // 2️⃣ If no exact match by ID, search by name similarity
             if (matchedItem == null) {
-                matchedItem = findMatchingItemByName(itemNameRu);
+                matchedItem = findMatchingItemByName(normalizedItemNameRu);
             }
 
             // 3️⃣ If match found, update; otherwise, insert as new item
@@ -82,7 +84,7 @@ public class PromCsvImportService {
                 insertNewItem(record);
             }
         } catch (Exception e) {
-            System.err.println("❌ Error processing record: " + e.getMessage());
+            System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -102,7 +104,12 @@ public class PromCsvImportService {
     }
 
     private ItemWP findMatchingItemByName(String nameRu) {
+        if (nameRu == null) return null;
         for (ItemWP item : itemCacheByName) {
+            if (item.getNameRu() == null) {
+                System.err.println("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
+                continue;
+            }
             if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD
                 && hasMatchingCategoryOrImage(item, nameRu)) {
                 logPartialMatch(item, nameRu);
@@ -125,17 +132,16 @@ public class PromCsvImportService {
             .anyMatch(img -> wordMatchPercentage(img.getName(), nameRu) >= WORD_MATCH_THRESHOLD);
     }
 
-    @Transactional
-    public void updateExistingItem(ItemWP item, CSVRecord record) {
+    private void updateExistingItem(ItemWP item, CSVRecord record) {
         System.out.println("🔄 Updating existing item: " + item.getId());
 
         itemWPRepository.save(item);
     }
 
-    @Transactional
-    public void insertNewItem(CSVRecord record) {
+    private void insertNewItem(CSVRecord record) {
+        System.out.println("🆕 Inserting new item: " + record.get("Назва_позиції"));
+
         String itemName = record.get("Назва_позиції");
-        System.out.println("🆕 Inserting new item: " + itemName);
         ItemWP newItem = new ItemWP();
         newItem.setId(parseItemId(record));
         newItem.setNameRu(itemName);
@@ -144,9 +150,9 @@ public class PromCsvImportService {
         newItem.setSlug(transliteratedRuName);
         newItem.setRegularPrice(Double.valueOf(record.get("Ціна")));
         newItem.setSku(newItem.getId() + "-" + transliterateRuToEn(itemName));
-        newItem.setStockStatus(parseStockStatus(record.get("Наявність")));
-        newItem.setDescriptionRu(DescriptionProcessingUtils.processDescriptionRU(record.get("Опис"), record.get("Категорія")));
-        newItem.setDescriptionUa(DescriptionProcessingUtils.processDescriptionUA(record.get("Опис_укр"), record.get("Категорія")));
+        newItem.setStockStatus("+".equalsIgnoreCase(record.get("Наявність")) ? "instock" : "outofstock");
+        newItem.setDescriptionRu(DescriptionProcessingUtils.processDescriptionRU(record.get("Опис"), record.get("Назва_групи")));
+        newItem.setDescriptionUa(DescriptionProcessingUtils.processDescriptionUA(record.get("Опис_укр"), record.get("Назва_групи")));
         newItem.setShortDescriptionRu(record.get("Опис"));
         newItem.setShortDescriptionUa(record.get("Опис_укр"));
 
@@ -167,12 +173,15 @@ public class PromCsvImportService {
 
             // Construct the image metadata for SEO
             String imageName = transliteratedRuName + "-" + imageId + ".jpg"; // Ensure filename format
-            String altText = itemName + " - купити в Україні";
+            String altText = "Зображення для товару:" + itemName;
             String title = itemName + " | buy-books.com.ua";
             String caption = "Придбати " + itemName + " в категорії " + categoryWP.getCategoryName();
             String description = "Купуйте " + itemName + " в онлайн-магазині книг buy-books.com.ua";
 
-            ImageWP saved = imageWPRepository.save(new ImageWP(imageId, imageName, altText, title, caption, description, imageUrl));
+            ImageWP saved = imageWPRepository.findById(imageId).orElseGet(() -> {
+                ImageWP newImage = new ImageWP(imageId, imageName, altText, title, caption, description, imageUrl);
+                return imageWPRepository.save(newImage);
+            });
             images.add(saved);
         }
         newItem.setFeaturedImageId(images.getFirst().getWpImageId());
@@ -187,11 +196,10 @@ public class PromCsvImportService {
         //newItem.setYoastCanonicalUrl();// if you have multiple posts or pages with similar content, it tells the search engines what URL contains the original content
         //newItem.setYoastSchema();
 
-
         itemWPRepository.save(newItem);
     }
 
-    private static Long extractImageId(String imageUrl) {
+    private Long extractImageId(String imageUrl) {
         Pattern IMAGE_ID_PATTERN = Pattern.compile("https://images\\.prom\\.ua/(\\d+)_.*");
         Matcher matcher = IMAGE_ID_PATTERN.matcher(imageUrl);
         if (matcher.matches()) {
@@ -199,9 +207,6 @@ public class PromCsvImportService {
         }
         System.err.println("⚠️ Warning: Could not extract image ID from URL: " + imageUrl);
         return null;
-    }
-    private String parseStockStatus(String availability) {
-        return "Є в наявності".equalsIgnoreCase(availability) ? "instock" : "outofstock";
     }
 
     private double wordMatchPercentage(String text1, String text2) {

@@ -46,9 +46,9 @@ public class DescriptionProcessingUtils {
         StringBuilder descriptionBuilder = new StringBuilder(description);
         descriptionBuilder.append("<p>Заказывайте этот товар прямо сейчас и получайте скидку на следующую покупку!");
         if (categoryName != null && !categoryName.isEmpty()) {
-            descriptionBuilder.append("<p>Больше товаров категории ").append(categoryName).append(" в интернет-магазине buy-books.com.ua</p>");
+            descriptionBuilder.append("Больше товаров категории ").append(categoryName).append(" в интернет-магазине buy-books.com.ua</p>");
         } else {
-            descriptionBuilder.append("<p>Больше товаров в интернет-магазине buy-books.com.ua</p>");
+            descriptionBuilder.append("Больше товаров в интернет-магазине buy-books.com.ua</p>");
         }
 
         return descriptionBuilder.toString();
@@ -81,15 +81,15 @@ public class DescriptionProcessingUtils {
                 }
             }
         }
-        String actionText = "Замовляйте цей товар зараз та отримуйте знижку на наступну покупку!";
+        String actionText = "<p>Замовляйте цей товар зараз та отримуйте знижку на наступну покупку!";
         description += "\n" + actionText;
         //TODO: category href link
         // Add additional text about more products
         if (category != null && !category.isEmpty()) {
-            String additionalText = "<p>Більше товарів категорії " + category + " в інтернет магазині buy-books.com.ua</p>";
+            String additionalText = "Більше товарів категорії " + category + " в інтернет магазині buy-books.com.ua</p>";
             description += "\n" + additionalText;
         } else {
-            String additionalText = "<p>Більше товарів в інтернет магазині buy-books.com.ua</p>";
+            String additionalText = "Більше товарів в інтернет магазині buy-books.com.ua</p>";
             description += "\n" + additionalText;
         }
 

@@ -129,7 +129,7 @@ public class WooCommerceSyncService {
             for (JsonElement element : itemsArray) {
                 JsonObject prod = element.getAsJsonObject();
                 int id = prod.get("id").getAsInt();
-                String nameUa = prod.has("name") ? prod.get("name").getAsString() : "";
+                String nameRu = prod.has("name") ? prod.get("name").getAsString() : "";
                 String slug = prod.has("slug") ? prod.get("slug").getAsString() : "";
                 String descriptionUa = prod.has("description") ? prod.get("description").getAsString() : "";
                 String shortDescriptionUa = prod.has("short_description") ? prod.get("short_description").getAsString() : "";
@@ -225,10 +225,10 @@ public class WooCommerceSyncService {
                 // Save ItemWP entity
                 ItemWP item = new ItemWP();
                 item.setId((long) id);
-                item.setNameUa(nameUa);
+                item.setNameRu(nameRu);
                 item.setSlug(slug);
-                item.setDescriptionUa(descriptionUa);
-                item.setShortDescriptionUa(shortDescriptionUa);
+                item.setDescriptionRu(descriptionUa);
+                item.setShortDescriptionRu(shortDescriptionUa);
                 item.setSku(sku);
                 item.setRegularPrice(price);
                 item.setStockStatus(stockStatus);

@@ -32,7 +32,7 @@ public class ImageWP {
     @Column(name = "description")
     private String description; // Опис
 
-    @Column(name = "file_url", nullable = false)
-    private String fileUrl; // Посилання на файл
+    @Column(name = "original_image_uri", nullable = false)
+    private String originalImageUri; // Посилання на файл
 }
 
