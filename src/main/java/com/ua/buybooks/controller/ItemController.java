@@ -2,9 +2,11 @@ package com.ua.buybooks.controller;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,7 +32,8 @@ public class ItemController {
     public void uploadItem(@PathVariable(name = "itemId") Item itemId) {
         wooCommerceProductService.uploadItemToWooCommerce(itemId);
     }
-    @PostMapping("/import")
+
+    @PostMapping("/import/horoshop")
     public String importItems(@RequestParam("file") MultipartFile file) {
         try (Reader reader = new InputStreamReader(file.getInputStream())) {
             Iterable<CSVRecord> records = CSVFormat.DEFAULT

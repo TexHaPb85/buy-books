@@ -1,6 +1,7 @@
 package com.ua.buybooks.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.google.gson.JsonArray;
@@ -20,9 +21,14 @@ import okhttp3.Response;
 @Service
 public class WooCommerceProductService {
 
-    private static final String BASE_URL = "https://buy-books.com.ua/wp-json/wc/v3/products";
-    private static final String CONSUMER_KEY = "ck_4897e18aee5567e7b07485599913a8f7ae57ec67";
-    private static final String CONSUMER_SECRET = "cs_273159a7fff5b7ea1be157822d1e690c0683c518";
+    @Value("${wc.api.base-url}")
+    private String wcBaseUrl; //https://buy-books.com.ua/wp-json/wc/v3
+
+    @Value("${wc.api.consumer-key}")
+    private String consumerKey;
+
+    @Value("${wc.api.consumer-secret}")
+    private String consumerSecret;
 
     private final FailureLogRepository failureLogRepository;
 
@@ -111,7 +117,7 @@ public class WooCommerceProductService {
             product.add("translations", translations);
 
             // Authorization
-            String credentials = Credentials.basic(CONSUMER_KEY, CONSUMER_SECRET);
+            String credentials = Credentials.basic(consumerKey, consumerSecret);
 
             // HTTP request
             RequestBody body = RequestBody.create(
@@ -119,7 +125,7 @@ public class WooCommerceProductService {
             );
 
             Request request = new Request.Builder()
-                .url(BASE_URL)
+                .url(wcBaseUrl + "/products")
                 .post(body)
                 .addHeader("Authorization", credentials)
                 .build();
@@ -131,6 +137,7 @@ public class WooCommerceProductService {
             }
         } catch (Exception e) {
             logFailure(item.getId(), item.getNameRu(), e.getMessage());
+            e.printStackTrace();
         }
     }
 

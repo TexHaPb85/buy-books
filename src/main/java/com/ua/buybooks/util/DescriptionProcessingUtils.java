@@ -37,19 +37,21 @@ public class DescriptionProcessingUtils {
             }
         }
 
-        String actionText = "Заказывайте этот товар прямо сейчас и получайте скидку на следующую покупку!";
-        description += "\n" + actionText;
-
-        // Add link to more products, with category if available
-        if (category != null && !category.isEmpty()) {
-            String additionalText = "<p>Больше товаров категории " + category + " в интернет-магазине buy-books.com.ua</p>";
-            description += "\n" + additionalText;
-        } else {
-            String additionalText = "<p>Больше товаров в интернет-магазине buy-books.com.ua</p>";
-            description += "\n" + additionalText;
-        }
+        description = addDescriptionEndingRu(description, category);
 
         return description;
+    }
+
+    public static String addDescriptionEndingRu(String description, String categoryName) {
+        StringBuilder descriptionBuilder = new StringBuilder(description);
+        descriptionBuilder.append("<p>Заказывайте этот товар прямо сейчас и получайте скидку на следующую покупку!");
+        if (categoryName != null && !categoryName.isEmpty()) {
+            descriptionBuilder.append("<p>Больше товаров категории ").append(categoryName).append(" в интернет-магазине buy-books.com.ua</p>");
+        } else {
+            descriptionBuilder.append("<p>Больше товаров в интернет-магазине buy-books.com.ua</p>");
+        }
+
+        return descriptionBuilder.toString();
     }
 
     public static String processDescriptionUA(String description, String category) {

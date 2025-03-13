@@ -1,16 +1,24 @@
 package com.ua.buybooks.service;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
 
 import com.ua.buybooks.entity.FailureLog;
 import com.ua.buybooks.entity.Item;
+import com.ua.buybooks.entity.wp.ItemWP;
 import com.ua.buybooks.repo.FailureLogRepository;
 import com.ua.buybooks.repo.ItemRepository;
+import com.ua.buybooks.repo.wp.ItemWPRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
 import com.ua.buybooks.util.TransliterationUtil;
 
 import lombok.RequiredArgsConstructor;
+
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +26,86 @@ public class ItemService {
 
     private final ItemRepository repository;
     private final FailureLogRepository failureLogRepository;
+    private final ItemWPRepository itemWPRepository;
+
+    public void processRecordsProm(List<CSVRecord> records) {
+        int newItems = 0;
+        int updatedItems = 0;
+        int conflicts = 0;
+
+        Map<String, List<ItemWP>> collect = itemWPRepository.findAll()
+            .stream()
+            .collect(Collectors.groupingBy(ItemWP::getNameRu));
+
+        for (CSVRecord record : records) {
+            try {
+                Long itemId = parseItemId(record);
+                String itemNameUa = record.get("Назва_позиції_укр").trim();
+                String itemNameRu = record.get("Назва_позиції").trim();
+                Optional<ItemWP> existingItemOpt = itemWPRepository.findByIdOrNameUaOrNameRu(itemId, itemNameUa, itemNameRu);
+
+                if (existingItemOpt.isPresent()) {
+                    ItemWP existingItem = existingItemOpt.get();
+                    existingItem = mapCsvToItem(record, existingItem);
+                    itemWPRepository.save(existingItem);
+                    updatedItems++;
+                } else {
+                    ItemWP newItem = mapCsvToItem(record, new ItemWP());
+                    itemWPRepository.save(newItem);
+                    newItems++;
+                }
+            } catch (Exception e) {
+                conflicts++;
+                System.err.println("⚠️ Import conflict: " + e.getMessage());
+            }
+        }
+
+        System.out.println("✅ Import completed: " + newItems + " new, " + updatedItems + " updated, " + conflicts + " conflicts.");
+    }
+
+    private Long parseItemId(CSVRecord record) {
+        String itemIdStr = record.get("Код_товару");
+        if (itemIdStr.isBlank()) {
+            return (long) record.get("Назва_позиції").hashCode();
+        }
+        return Long.valueOf(itemIdStr.trim());
+    }
+
+    private ItemWP mapCsvToItem(CSVRecord record, ItemWP item) {
+        item.setId(parseItemId(record));
+        item.setNameUa(record.get("Назва_позиції_укр").trim());
+        item.setNameRu(record.get("Назва_позиції").trim());
+        item.setDescriptionUa(record.get("Опис_укр"));
+        item.setDescriptionRu(record.get("Опис"));
+        item.setRegularPrice(parseDouble(record.get("Ціна")));
+        item.setStockStatus(parseStockStatus(record.get("Наявність")));
+        item.setSku(record.get("Ідентифікатор_товару"));
+        item.setYoastMetaDescription(record.get("HTML_опис_укр"));
+        item.setYoastFocusKeyword(record.get("Пошукові_запити_укр"));
+
+        // Image handling
+        String[] imageUrls = record.get("Посилання_зображення").split(",");
+        item.setFeaturedImageId(parseImageId(imageUrls[0]));
+
+        return item;
+    }
+
+    private Double parseDouble(String value) {
+        try {
+            return Double.valueOf(value.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String parseStockStatus(String availability) {
+        return "Є в наявності".equalsIgnoreCase(availability) ? "instock" : "outofstock";
+    }
+
+    private Long parseImageId(String imageUrl) {
+        if (imageUrl.isEmpty()) return null;
+        return imageUrl.hashCode() * 1L;
+    }
 
     public void processRecord(CSVRecord record) {
         // Map IDs
