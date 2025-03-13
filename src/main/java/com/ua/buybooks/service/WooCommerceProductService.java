@@ -11,6 +11,7 @@ import com.ua.buybooks.entity.Item;
 import com.ua.buybooks.repo.FailureLogRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
 
+import lombok.RequiredArgsConstructor;
 import okhttp3.Credentials;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -19,6 +20,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 @Service
+@RequiredArgsConstructor
 public class WooCommerceProductService {
 
     @Value("${wc.api.base-url}")
@@ -31,11 +33,6 @@ public class WooCommerceProductService {
     private String consumerSecret;
 
     private final FailureLogRepository failureLogRepository;
-
-    @Autowired
-    public WooCommerceProductService(FailureLogRepository failureLogRepository) {
-        this.failureLogRepository = failureLogRepository;
-    }
 
     public void uploadItemToWooCommerce(Item item) {
         try {

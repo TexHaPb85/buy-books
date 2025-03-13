@@ -12,7 +12,6 @@ import com.ua.buybooks.entity.FailureLog;
 import com.ua.buybooks.entity.Item;
 import com.ua.buybooks.entity.wp.ItemWP;
 import com.ua.buybooks.repo.FailureLogRepository;
-import com.ua.buybooks.repo.ItemRepository;
 import com.ua.buybooks.repo.wp.ItemWPRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
 import com.ua.buybooks.util.TransliterationUtil;
@@ -24,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ItemService {
 
-    private final ItemRepository repository;
     private final FailureLogRepository failureLogRepository;
     private final ItemWPRepository itemWPRepository;
 
@@ -116,7 +114,7 @@ public class ItemService {
         }
         Long id = Long.valueOf(id1);
 
-        Item item = repository.findById(id).orElse(new Item());
+        Item item = null;//repository.findById(id).orElse(new Item());
         item.setId(id);
 
         item.setNameRu(record.get("name_ru"));
@@ -145,7 +143,7 @@ public class ItemService {
         item.setMetaDescriptionRu(record.get("meta_description_ru"));
         item.setMetaDescriptionUa(record.get("meta_description_ua"));
 
-        repository.save(item);
+        //repository.save(item);
     }
 
     private String isLengthPermissible(String value, int maxLength, String columnName, Long id) {

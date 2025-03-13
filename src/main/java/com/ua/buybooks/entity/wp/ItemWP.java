@@ -56,17 +56,29 @@ public class ItemWP {
     @Column(name = "short_description_ru", length = 4096)
     private String shortDescriptionRu; // Короткий опис (рос.) → "Короткий опис" (short_description)
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id")
-    private List<CategoryWP> categories; // Категорії товару
+    @ManyToMany
+    @JoinTable(
+        name = "item_categories",
+        joinColumns = @JoinColumn(name = "item_id"),
+        inverseJoinColumns = @JoinColumn(name = "category_id")
+    )
+    private List<CategoryWP> categories; // 🔄 Many-to-Many
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id")
-    private List<TagWP> tags; // Теги товару
+    @ManyToMany
+    @JoinTable(
+        name = "item_tags",
+        joinColumns = @JoinColumn(name = "item_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<TagWP> tags; // 🔄 Many-to-Many
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_id")
-    private List<ImageWP> images; // Зображення товару
+    @ManyToMany
+    @JoinTable(
+        name = "item_images",
+        joinColumns = @JoinColumn(name = "item_id"),
+        inverseJoinColumns = @JoinColumn(name = "image_id")
+    )
+    private List<ImageWP> images; // 🔄 Many-to-Many
 
     @Column(name = "featured_image_id")
     private Long featuredImageId; // ID основного зображення → "Головне зображення" (featured_media)

@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,9 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ua.buybooks.entity.wp.CategoryWP;
 import com.ua.buybooks.entity.wp.ImageWP;
 import com.ua.buybooks.entity.wp.ItemWP;
+import com.ua.buybooks.entity.wp.TagWP;
 import com.ua.buybooks.repo.wp.CategoryWPRepository;
 import com.ua.buybooks.repo.wp.ImageWPRepository;
 import com.ua.buybooks.repo.wp.ItemWPRepository;
+import com.ua.buybooks.repo.wp.TagWPRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -32,13 +33,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PromCsvImportService {
 
-    private static final double WORD_MATCH_THRESHOLD = 0.7; // 70% match required
+    private static final double WORD_MATCH_THRESHOLD = 0.9; // 90% match required
     private final ItemWPRepository itemWPRepository;
     private final CategoryWPRepository categoryWPRepository;
     private final ImageWPRepository imageWPRepository;
+    private final TagWPRepository tagWPRepository;
 
     private final Map<Long, ItemWP> itemCacheById = new ConcurrentHashMap<>();
     private final List<ItemWP> itemCacheByName = new ArrayList<>();
+
+    private int numOfNewItems = 0;
+    private int numOfUpdatedItems = 0;
 
     @Transactional
     public void processRecordsProm(List<CSVRecord> records) {
@@ -52,7 +57,12 @@ public class PromCsvImportService {
 //        ).join();
 
         records.forEach(this::processRecord);
+
         System.out.println("✅ Import completed.");
+        System.out.println("🆕 New items: " + numOfNewItems);
+        System.out.println("🔄 Updated items: " + numOfUpdatedItems);
+        numOfNewItems = 0;
+        numOfUpdatedItems = 0;
     }
 
     private void preloadItemsFromDB() {
@@ -78,11 +88,7 @@ public class PromCsvImportService {
             }
 
             // 3️⃣ If match found, update; otherwise, insert as new item
-            if (matchedItem != null) {
-                updateExistingItem(matchedItem, record);
-            } else {
-                insertNewItem(record);
-            }
+            createOrUpdateItem(matchedItem, record);
         } catch (Exception e) {
             System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
             e.printStackTrace();
@@ -92,7 +98,7 @@ public class PromCsvImportService {
     private ItemWP findMatchingItemById(Long id, String nameRu) {
         ItemWP item = itemCacheById.get(id);
         if (item != null) {
-            if (wordMatchPercentage(item.getNameRu(), nameRu) >= 1.0) {
+            if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD) {
                 return item; // ✅ Exact name match
             } else if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD
                 && hasMatchingCategoryOrImage(item, nameRu)) {
@@ -104,7 +110,9 @@ public class PromCsvImportService {
     }
 
     private ItemWP findMatchingItemByName(String nameRu) {
-        if (nameRu == null) return null;
+        if (nameRu == null) {
+            return null;
+        }
         for (ItemWP item : itemCacheByName) {
             if (item.getNameRu() == null) {
                 System.err.println("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
@@ -113,6 +121,9 @@ public class PromCsvImportService {
             if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD
                 && hasMatchingCategoryOrImage(item, nameRu)) {
                 logPartialMatch(item, nameRu);
+                System.out.println("⚠️⚠️⚠️ Partial match found: " + item.getId()
+                    + " - Existing: " + item.getNameRu()
+                    + " | New: " + nameRu);
                 return item;
             }
         }
@@ -132,17 +143,19 @@ public class PromCsvImportService {
             .anyMatch(img -> wordMatchPercentage(img.getName(), nameRu) >= WORD_MATCH_THRESHOLD);
     }
 
-    private void updateExistingItem(ItemWP item, CSVRecord record) {
-        System.out.println("🔄 Updating existing item: " + item.getId());
-
-        itemWPRepository.save(item);
-    }
-
-    private void insertNewItem(CSVRecord record) {
-        System.out.println("🆕 Inserting new item: " + record.get("Назва_позиції"));
-
+    private void createOrUpdateItem(ItemWP itemToProcess, CSVRecord record) {
         String itemName = record.get("Назва_позиції");
-        ItemWP newItem = new ItemWP();
+        String loggingPrefix = "🚀 Inserting new item: ";
+        if (itemToProcess != null) {
+            itemName = itemToProcess.getNameRu();
+            loggingPrefix = "🔄 Updating existing item: ";
+            numOfUpdatedItems++;
+        } else {
+            numOfNewItems++;
+        }
+        System.out.println(loggingPrefix + itemName);
+
+        ItemWP newItem = itemToProcess != null ? itemToProcess : new ItemWP();
         newItem.setId(parseItemId(record));
         newItem.setNameRu(itemName);
         newItem.setNameUa(record.get("Назва_позиції_укр"));
@@ -158,18 +171,37 @@ public class PromCsvImportService {
 
         Long categoryId = Long.parseLong(record.get("Номер_групи"));
         CategoryWP categoryWP = categoryWPRepository.findById(categoryId).orElseGet(() -> {
-            CategoryWP newCategory = new CategoryWP(categoryId, record.get("Назва_групи"));
+            CategoryWP newCategory = CategoryWP.builder()
+                .categoryId(categoryId)
+                .categoryName(record.get("Назва_групи"))
+                .build();
             return categoryWPRepository.save(newCategory);
         });
-
         newItem.setCategories(List.of(categoryWP));
+
+        List<TagWP> tags = new ArrayList<>();
+        String[] splitedCategoryWords = categoryWP.getCategoryName().trim().split(",\\s*");// Split by comma and trim spaces
+        for (String word : splitedCategoryWords) {
+            final String normalizeWord = normalizeText(word);
+            TagWP tag = tagWPRepository.findById((long) normalizeWord.hashCode()).orElseGet(() -> {
+                TagWP newTag = TagWP.builder()
+                    .tagId((long) normalizeWord.hashCode())
+                    .tagName(normalizeWord)
+                    .build();
+                return tagWPRepository.save(newTag);
+            });
+            tags.add(tagWPRepository.save(tag));
+        }
+        newItem.setTags(tags);
 
         String imageUrlsString = record.get("Посилання_зображення").trim();
         String[] imageUrls = imageUrlsString.split(",\\s*"); // Split by comma and trim spaces
         List<ImageWP> images = new ArrayList<>();
         for (String imageUrl : imageUrls) {
             Long imageId = extractImageId(imageUrl);
-            if (imageId == null) continue; // Skip invalid URLs
+            if (imageId == null) {
+                continue; // Skip invalid URLs
+            }
 
             // Construct the image metadata for SEO
             String imageName = transliteratedRuName + "-" + imageId + ".jpg"; // Ensure filename format
@@ -179,7 +211,16 @@ public class PromCsvImportService {
             String description = "Купуйте " + itemName + " в онлайн-магазині книг buy-books.com.ua";
 
             ImageWP saved = imageWPRepository.findById(imageId).orElseGet(() -> {
-                ImageWP newImage = new ImageWP(imageId, imageName, altText, title, caption, description, imageUrl);
+                ImageWP newImage = ImageWP.builder()
+                    .wpImageId(imageId)
+                    .name(imageName)
+                    .altText(altText)
+                    .title(title)
+                    .caption(caption)
+                    .description(description)
+                    .originalImageUri(imageUrl)
+                    .targetWpSiteUri(null)
+                    .build();
                 return imageWPRepository.save(newImage);
             });
             images.add(saved);

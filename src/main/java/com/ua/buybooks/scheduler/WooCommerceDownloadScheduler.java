@@ -1,12 +1,12 @@
-package com.ua.buybooks.service;
+package com.ua.buybooks.scheduler;
 
-import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.google.gson.JsonArray;
@@ -30,7 +30,7 @@ import okhttp3.Response;
 
 @Service
 @RequiredArgsConstructor
-public class WooCommerceSyncService {
+public class WooCommerceDownloadScheduler {
 
     @Value("${wc.api.base-url}")
     private String wcBaseUrl;
@@ -57,7 +57,7 @@ public class WooCommerceSyncService {
     private final TagWPRepository tagWPRepository;
     private final ImageWPRepository imageWPRepository;
 
-    @PostConstruct
+    @Scheduled(fixedDelay = 60 * 60, initialDelay = 1, timeUnit = TimeUnit.SECONDS)
     public void initWooData() {
         syncAllData();
     }
@@ -93,7 +93,7 @@ public class WooCommerceSyncService {
                 long id = cat.get("id").getAsLong();
                 String name = cat.get("name").getAsString();
 
-                categoryWPRepository.save(new CategoryWP(id, name));
+                categoryWPRepository.save(CategoryWP.builder().categoryId(id).categoryName(name).build());
             }
             page++;
         }
@@ -112,7 +112,7 @@ public class WooCommerceSyncService {
                 Long id = tag.get("id").getAsLong();
                 String name = tag.get("name").getAsString();
 
-                tagWPRepository.save(new TagWP(id, name));
+                tagWPRepository.save(TagWP.builder().tagId(id).tagName(name).build());
             }
             page++;
         }
@@ -147,7 +147,7 @@ public class WooCommerceSyncService {
                         JsonObject catObj = catElement.getAsJsonObject();
                         Long categoryId = catObj.get("id").getAsLong();
                         String categoryName = catObj.get("name").getAsString();
-                        categories.add(new CategoryWP(categoryId, categoryName));
+                        categories.add(CategoryWP.builder().categoryId(categoryId).categoryName(categoryName).build());
                     }
                 }
 
@@ -159,7 +159,7 @@ public class WooCommerceSyncService {
                         JsonObject tagObj = tagElement.getAsJsonObject();
                         Long tagId = tagObj.get("id").getAsLong();
                         String tagName = tagObj.get("name").getAsString();
-                        tags.add(new TagWP(tagId, tagName));
+                        tags.add(TagWP.builder().tagId(tagId).tagName(tagName).build());
                     }
                 }
 
@@ -180,11 +180,21 @@ public class WooCommerceSyncService {
                         String caption = imgObj.has("caption") ? imgObj.get("caption").getAsString() : "";
                         String description = imgObj.has("description") ? imgObj.get("description").getAsString() : "";
 
-                        ImageWP image = new ImageWP(imageId, title, altText, title, caption, description, fileUrl);
+                        ImageWP image = ImageWP.builder()
+                            .wpImageId(imageId)
+                            .name(title)
+                            .altText(altText)
+                            .title(title)
+                            .caption(caption)
+                            .description(description)
+                            .targetWpSiteUri(fileUrl)
+                            .originalImageUri(null)
+                            .build();
+                        imageWPRepository.save(image);
                         images.add(image);
 
                         if (i == 0) {
-                            featuredImageId = (long) imageId; // First image is the featured image
+                            featuredImageId = imageId; // First image is the featured image
                         }
                     }
                 }
@@ -283,7 +293,16 @@ public class WooCommerceSyncService {
                     String caption = mediaObj.has("caption") ? mediaObj.get("caption").getAsJsonObject().get("rendered").getAsString() : "";
                     String description = mediaObj.has("description") ? mediaObj.get("description").getAsJsonObject().get("rendered").getAsString() : "";
 
-                    ImageWP image = new ImageWP(imageId, title, altText, title, caption, description, fileUrl);
+                    ImageWP image = ImageWP.builder()
+                        .wpImageId(imageId)
+                        .name(title)
+                        .altText(altText)
+                        .title(title)
+                        .caption(caption)
+                        .description(description)
+                        .originalImageUri(null)
+                        .targetWpSiteUri(fileUrl)
+                        .build();
                     imageWPRepository.save(image);
                 }
                 page++;

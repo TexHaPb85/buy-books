@@ -2,15 +2,21 @@ package com.ua.buybooks.entity.wp;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 @Entity
 @Table(name = "images_wp")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class ImageWP {
 
     @Id
@@ -32,7 +38,13 @@ public class ImageWP {
     @Column(name = "description")
     private String description; // Опис
 
-    @Column(name = "original_image_uri", nullable = false)
+    @Column(name = "original_image_uri")
     private String originalImageUri; // Посилання на файл
+
+    @Column(name = "target_wp_site_uri")
+    private String targetWpSiteUri; // ✅ New field → URI of the image on the WP site (if already uploaded)
+
+    @ManyToMany(mappedBy = "images")
+    private List<ItemWP> items = new ArrayList<>(); // 🔄 Many-to-Many
 }
 

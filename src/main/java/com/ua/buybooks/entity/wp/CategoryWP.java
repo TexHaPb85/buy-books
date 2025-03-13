@@ -2,15 +2,21 @@ package com.ua.buybooks.entity.wp;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 @Entity
 @Table(name = "categories_wp")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class CategoryWP {
 
     @Id
@@ -19,4 +25,7 @@ public class CategoryWP {
 
     @Column(name = "category_name", nullable = false)
     private String categoryName; // Назва категорії
+
+    @ManyToMany(mappedBy = "categories")
+    private List<ItemWP> items = new ArrayList<>(); // 🔄 Many-to-Many
 }
