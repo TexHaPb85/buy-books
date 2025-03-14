@@ -169,13 +169,13 @@ public class PromCsvImportService {
         newItem.setShortDescriptionRu(record.get("Опис"));
         newItem.setShortDescriptionUa(record.get("Опис_укр"));
 
-        Long categoryId = Long.parseLong(record.get("Номер_групи"));
-        CategoryWP categoryWP = categoryWPRepository.findById(categoryId).orElseGet(() -> {
-            CategoryWP newCategory = CategoryWP.builder()
-                .categoryId(categoryId)
-                .categoryName(record.get("Назва_групи"))
-                .build();
-            return categoryWPRepository.save(newCategory);
+        String categoryName = record.get("Назва_групи");
+        CategoryWP categoryWP = categoryWPRepository.findByCategoryName(categoryName).orElseGet(() -> {
+            throw new RuntimeException("Category not found: " + categoryName);
+//            CategoryWP newCategory = CategoryWP.builder()
+//                .categoryName(record.get("Назва_групи"))
+//                .build();
+//            return categoryWPRepository.save(newCategory);
         });
         newItem.setCategories(List.of(categoryWP));
 

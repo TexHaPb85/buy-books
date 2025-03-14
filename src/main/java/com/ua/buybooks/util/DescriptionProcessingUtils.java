@@ -44,11 +44,11 @@ public class DescriptionProcessingUtils {
 
     public static String addDescriptionEndingRu(String description, String categoryName) {
         StringBuilder descriptionBuilder = new StringBuilder(description);
-        descriptionBuilder.append("<p>Заказывайте этот товар прямо сейчас и получайте скидку на следующую покупку!");
+        descriptionBuilder.append("<p> Заказывайте этот товар прямо сейчас и получайте скидку на следующую покупку!");
         if (categoryName != null && !categoryName.isEmpty()) {
-            descriptionBuilder.append("Больше товаров категории ").append(categoryName).append(" в интернет-магазине buy-books.com.ua</p>");
+            descriptionBuilder.append(" Больше товаров категории ").append(categoryName).append(" в интернет-магазине buy-books.com.ua</p>");
         } else {
-            descriptionBuilder.append("Больше товаров в интернет-магазине buy-books.com.ua</p>");
+            descriptionBuilder.append(" Больше товаров в интернет-магазине buy-books.com.ua</p>");
         }
 
         return descriptionBuilder.toString();

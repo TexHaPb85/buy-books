@@ -5,11 +5,14 @@ import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "categories_wp")
@@ -17,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@ToString(exclude = "items")
 public class CategoryWP {
 
     @Id
@@ -27,5 +31,6 @@ public class CategoryWP {
     private String categoryName; // Назва категорії
 
     @ManyToMany(mappedBy = "categories")
+    @JsonIgnore
     private List<ItemWP> items = new ArrayList<>(); // 🔄 Many-to-Many
 }

@@ -47,10 +47,7 @@ public class WooCommerceDownloadScheduler {
     @Value("${wp.admin.app-password}")
     private String wpAdminAppPassword;
 
-    private final OkHttpClient client = new OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build();
+    private final OkHttpClient client;
 
     private final ItemWPRepository itemWPRepository;
     private final CategoryWPRepository categoryWPRepository;

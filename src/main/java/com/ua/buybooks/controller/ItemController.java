@@ -2,21 +2,16 @@ package com.ua.buybooks.controller;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.ua.buybooks.entity.Item;
 import com.ua.buybooks.service.ItemService;
-import com.ua.buybooks.service.WooCommerceProductService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,14 +19,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/items")
 @RequiredArgsConstructor
 public class ItemController {
-
     private final ItemService itemService;
-    private final WooCommerceProductService wooCommerceProductService;
 
-    @PostMapping("/upload-item/{itemId}")
-    public void uploadItem(@PathVariable(name = "itemId") Item itemId) {
-        wooCommerceProductService.uploadItemToWooCommerce(itemId);
-    }
 
     @PostMapping("/import/horoshop")
     public String importItems(@RequestParam("file") MultipartFile file) {

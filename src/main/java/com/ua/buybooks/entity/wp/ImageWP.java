@@ -5,11 +5,14 @@ import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "images_wp")
@@ -17,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@ToString(exclude = "items")
 public class ImageWP {
 
     @Id
@@ -45,6 +49,7 @@ public class ImageWP {
     private String targetWpSiteUri; // ✅ New field → URI of the image on the WP site (if already uploaded)
 
     @ManyToMany(mappedBy = "images")
+    @JsonIgnore
     private List<ItemWP> items = new ArrayList<>(); // 🔄 Many-to-Many
 }
 
