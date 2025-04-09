@@ -5,7 +5,20 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.ua.buybooks.util.constants.CountryCode;
+
 public class DescriptionProcessingUtils {
+
+    public static String getOpositeLocale(String locale) {
+        if (locale.equals(CountryCode.RU.getCode())) {
+            return CountryCode.UA.getCode();
+        } else if (locale.equals(CountryCode.UA.getCode())) {
+            return CountryCode.RU.getCode();
+        } else {
+            throw new IllegalArgumentException("Unknown locale: " + locale);
+        }
+    }
+
     public static String processDescriptionRU(String description, String category) {
         if (description == null) {
             return null;

@@ -18,9 +18,8 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/items")
 @RequiredArgsConstructor
-public class ItemController {
+public class ImportHoroshopCsvController {
     private final ItemService itemService;
-
 
     @PostMapping("/import/horoshop")
     public String importItems(@RequestParam("file") MultipartFile file) {

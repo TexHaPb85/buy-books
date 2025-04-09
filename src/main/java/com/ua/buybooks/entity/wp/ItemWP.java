@@ -113,5 +113,11 @@ public class ItemWP {
 
     @Column(name = "is_existing_in_wp", nullable = false)
     private Boolean isExistingInWP = false; // Флаг чи існує товар у WP чи це новий імпортований
+
+    @Column(name = "locale")
+    private String locale; // ✅ New: Language code (ru, uk)
+
+    @Column(name = "translated_id")
+    private Long translatedId; // ✅ New: ID of the translated product in WP
 }
 

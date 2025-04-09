@@ -26,6 +26,9 @@ import com.ua.buybooks.repo.wp.ImageWPRepository;
 import com.ua.buybooks.repo.wp.ItemWPRepository;
 import com.ua.buybooks.repo.wp.TagWPRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
+import com.ua.buybooks.util.LangUtils;
+import com.ua.buybooks.util.TransliterationUtil;
+import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -46,7 +49,66 @@ public class PromCsvImportService {
     private int numOfUpdatedItems = 0;
 
     @Transactional
-    public void processRecordsProm(List<CSVRecord> records) {
+    public void processCategoriesProm(List<CSVRecord> records) {
+        for (CSVRecord record : records) {
+
+            CategoryWP existingCategoryUa = categoryWPRepository.findByCategoryName(record.get("Назва_групи"))
+                .orElse(null);
+
+            if (existingCategoryUa != null) {
+                existingCategoryUa.setCategoryName(record.get("Назва_групи_укр"));
+                existingCategoryUa.setSlug(TransliterationUtil.transliterateUaToEn(record.get("Назва_групи_укр")));
+                existingCategoryUa.setDescription("Категорія товарів: " + record.get("Назва_групи_укр"));
+                existingCategoryUa.setPhotoUri(record.get("Посилання_зображення_групи"));
+                existingCategoryUa.setDifferentFromWordpress(true);
+            }
+
+            CategoryWP categoryUa = existingCategoryUa != null ? existingCategoryUa : CategoryWP.builder()
+                .categoryName(record.get("Назва_групи_укр"))
+                .slug(TransliterationUtil.transliterateUaToEn(record.get("Назва_групи_укр")))
+                .description("Категорія товарів: " + record.get("Назва_групи_укр"))
+                .photoUri(record.get("Посилання_зображення_групи"))
+                .locale(CountryCode.UA.getCode())
+                .isDifferentFromWordpress(true)
+                .build();
+
+            CategoryWP existingCategoryRu = categoryWPRepository.findByCategoryName(record.get("Назва_групи"))
+                .orElse(null);
+
+            if (existingCategoryRu != null) {
+                existingCategoryRu.setCategoryName(record.get("Назва_групи"));
+                existingCategoryRu.setSlug(TransliterationUtil.transliterateRuToEn(record.get("Назва_групи")));
+                existingCategoryRu.setDescription("Категория товаров: " + record.get("Назва_групи"));
+                existingCategoryRu.setPhotoUri(record.get("Посилання_зображення_групи"));
+                existingCategoryRu.setDifferentFromWordpress(true);
+            }
+
+            CategoryWP categoryRu = existingCategoryRu != null ? existingCategoryRu : CategoryWP.builder()
+                .categoryName(record.get("Назва_групи"))
+                .slug(TransliterationUtil.transliterateRuToEn(record.get("Назва_групи")))
+                .description("Категория товаров: " + record.get("Назва_групи"))
+                .photoUri(record.get("Посилання_зображення_групи"))
+                .locale(CountryCode.RU.getCode())
+                .isDifferentFromWordpress(true)
+                .build();
+
+            if (LangUtils.isUaText(categoryUa.getCategoryName())) {
+                categoryWPRepository.save(categoryUa);
+            } else {
+                System.out.println("❌ Warning: Category name is not in Ukrainian: " + categoryUa.getCategoryName());
+            }
+
+            if (LangUtils.isRuText(categoryRu.getCategoryName())) {
+                categoryWPRepository.save(categoryRu);
+            } else {
+                System.out.println("❌ Warning: Category name is not in Russian: " + categoryRu.getCategoryName());
+            }
+        }
+    }
+
+
+    @Transactional
+    public void processItemRecordsProm(List<CSVRecord> records) {
         System.out.println("🔄 Preloading items into cache...");
         preloadItemsFromDB();
 
@@ -56,7 +118,7 @@ public class PromCsvImportService {
 //            records.parallelStream().forEach(this::processRecord)
 //        ).join();
 
-        records.forEach(this::processRecord);
+        records.forEach(this::processItemRecord);
 
         System.out.println("✅ Import completed.");
         System.out.println("🆕 New items: " + numOfNewItems);
@@ -74,7 +136,24 @@ public class PromCsvImportService {
         System.out.println("✅ Cached " + items.size() + " items from database.");
     }
 
-    private void processRecord(CSVRecord record) {
+    private void processCategoryRecord(CSVRecord record) {
+        try {
+            Long catId = parseItemId(record);
+            String catName = record.get("Назва_групи");
+
+            CategoryWP categoryWP = categoryWPRepository.findByCategoryIdAndCategoryName(catId, catName)
+                .orElse(new CategoryWP());
+            categoryWP.setCategoryId(catId);
+            categoryWP.setCategoryName(catName);
+            categoryWP.setLocale("uk");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void processItemRecord(CSVRecord record) {
         try {
             Long itemId = parseItemId(record);
             String normalizedItemNameRu = normalizeText(record.get("Назва_позиції"));

@@ -18,13 +18,34 @@ import com.ua.buybooks.service.PromCsvImportService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/items")
+@RequestMapping("/api/import")
 @RequiredArgsConstructor
-public class ImportCsvController {
+public class ImportPromCsvController {
 
     private final PromCsvImportService promCsvImportService;
 
-    @PostMapping("/import/prom")
+    @PostMapping("/categories/prom")
+    public ResponseEntity<String> importPromCategoriesCsv(@RequestParam("file") MultipartFile file) {
+        try (Reader reader = new InputStreamReader(file.getInputStream())) {
+            List<CSVRecord> records = CSVFormat.DEFAULT
+                .withHeader("Номер_групи", "Назва_групи", "Назва_групи_укр", "Ідентифікатор_групи",
+                    "Номер_батьківської_групи", "Ідентифікатор_батьківської_групи", "HTML_заголовок_групи",
+                    "HTML_заголовок_групи_укр", "HTML_опис_групи", "HTML_опис_групи_укр", "Опис_групи_до_списку_товарних_позицій",
+                    "Опис_групи_до_списку_товарних_позицій_укр", "Опис_групи_після_списку_товарних_позицій", "Опис_групи_після_списку_товарних_позицій_укр",
+                    "Посилання_зображення_групи")
+                .withSkipHeaderRecord()
+                .parse(reader)
+                .getRecords();
+
+            promCsvImportService.processCategoriesProm(records);
+            return ResponseEntity.ok("Import successful!");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Import failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/items/prom")
     public ResponseEntity<String> importPromCsv(@RequestParam("file") MultipartFile file) {
         try (Reader reader = new InputStreamReader(file.getInputStream())) {
             List<CSVRecord> records = CSVFormat.DEFAULT
@@ -43,7 +64,7 @@ public class ImportCsvController {
                 .parse(reader)
                 .getRecords();
 
-            promCsvImportService.processRecordsProm(records);
+            promCsvImportService.processItemRecordsProm(records);
             return ResponseEntity.ok("Import successful!");
         } catch (Exception e) {
             e.printStackTrace();

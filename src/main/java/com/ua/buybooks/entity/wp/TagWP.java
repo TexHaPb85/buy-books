@@ -33,6 +33,12 @@ public class TagWP {
     @ManyToMany(mappedBy = "tags")
     @JsonIgnore
     private List<ItemWP> items = new ArrayList<>(); // 🔄 Many-to-Many
+
+    @Column(name = "locale")
+    private String locale; // ✅ New: Language code (ru, uk)
+
+    @Column(name = "translated_id")
+    private Long translatedId; // ✅ New: ID of the translated product in WP
 }
 
 

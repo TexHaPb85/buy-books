@@ -1,5 +1,6 @@
 package com.ua.buybooks.scheduler;
 
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ import com.ua.buybooks.repo.wp.CategoryWPRepository;
 import com.ua.buybooks.repo.wp.ImageWPRepository;
 import com.ua.buybooks.repo.wp.ItemWPRepository;
 import com.ua.buybooks.repo.wp.TagWPRepository;
+import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
 import okhttp3.Credentials;
@@ -32,27 +34,21 @@ import okhttp3.Response;
 @RequiredArgsConstructor
 public class WooCommerceDownloadScheduler {
 
-    @Value("${wc.api.base-url}")
-    private String wcBaseUrl;
-
-    @Value("${wc.api.consumer-key}")
-    private String consumerKey;
-
-    @Value("${wc.api.consumer-secret}")
-    private String consumerSecret;
-
-    @Value("${wp.admin.username}")
-    private String wpAdminUsername;
-
-    @Value("${wp.admin.app-password}")
-    private String wpAdminAppPassword;
-
     private final OkHttpClient client;
-
     private final ItemWPRepository itemWPRepository;
     private final CategoryWPRepository categoryWPRepository;
     private final TagWPRepository tagWPRepository;
     private final ImageWPRepository imageWPRepository;
+    @Value("${wc.api.base-url-woocommerce}")
+    private String wcBaseUrl;
+    @Value("${wc.api.consumer-key}")
+    private String consumerKey;
+    @Value("${wc.api.consumer-secret}")
+    private String consumerSecret;
+    @Value("${wp.admin.username}")
+    private String wpAdminUsername;
+    @Value("${wp.admin.app-password}")
+    private String wpAdminAppPassword;
 
     @Scheduled(fixedDelay = 60 * 60, initialDelay = 1, timeUnit = TimeUnit.SECONDS)
     public void initWooData() {
@@ -83,17 +79,59 @@ public class WooCommerceDownloadScheduler {
             String url = wcBaseUrl + "/products/categories?per_page=100&page=" + page;
             JsonArray categoriesArray = fetchJsonArray(url);
 
-            if (categoriesArray == null || categoriesArray.size() == 0) break;
+            if (categoriesArray == null || categoriesArray.size() == 0) {
+                break;
+            }
 
             for (JsonElement element : categoriesArray) {
                 JsonObject cat = element.getAsJsonObject();
                 long id = cat.get("id").getAsLong();
                 String name = cat.get("name").getAsString();
+                try {
+                    String locale = null;
+                    Long translatedId = null;
+                    // ✅ Get Locale (If available)
+                    if (containsPolylangTranslations(cat)) {
+                        try {
+                            locale = cat.get("polylang_current_lang").getAsString();
+                            translatedId = cat.get("polylang_translations").getAsJsonObject().get(CountryCode.RU.getCode()).getAsLong() == id
+                                ? cat.get("polylang_translations").getAsJsonObject().get(CountryCode.UA.getCode()).getAsLong()
+                                : cat.get("polylang_translations").getAsJsonObject().get(CountryCode.RU.getCode()).getAsLong();
+                        } catch (Exception e) {
+                            System.out.println("❌ Error selecting polylang translations for category " + name + " id:" + id
+                                + " error:" + e.getClass() + ":" + e.getMessage());
+                        }
 
-                categoryWPRepository.save(CategoryWP.builder().categoryId(id).categoryName(name).build());
+                    } else {
+                        System.out.println("❌ Warning:Category locale data is missing, " + name + " id:" + id);
+                    }
+
+                    categoryWPRepository.save(CategoryWP.builder()
+                        .categoryId(id)
+                        .categoryWordpressId(id)
+                        .categoryName(name)
+                        .locale(locale) // ✅ Set locale
+                        .translatedCategoryId(translatedId) // ✅ Set translated version ID
+                        .build());
+                } catch (Exception e) {
+                    System.out.println("❌ Error during importing of category " + name + " id:" + id);
+                    e.printStackTrace();
+                }
             }
             page++;
         }
+    }
+
+    private boolean containsPolylangTranslations(JsonObject obj) {
+        try {
+            return obj.has("polylang_current_lang")
+                && obj.has("polylang_translations")
+                && !obj.get("polylang_translations").getAsJsonObject().entrySet().isEmpty()
+                && !obj.get("polylang_current_lang").getAsString().equalsIgnoreCase("false");
+        } catch (IllegalStateException | NullPointerException e) {
+            return false;
+        }
+
     }
 
     private void loadTags() {
@@ -102,14 +140,22 @@ public class WooCommerceDownloadScheduler {
             String url = wcBaseUrl + "/products/tags?per_page=100&page=" + page;
             JsonArray tagsArray = fetchJsonArray(url);
 
-            if (tagsArray == null || tagsArray.size() == 0) break;
+            if (tagsArray == null || tagsArray.size() == 0) {
+                break;
+            }
 
             for (JsonElement element : tagsArray) {
                 JsonObject tag = element.getAsJsonObject();
                 Long id = tag.get("id").getAsLong();
                 String name = tag.get("name").getAsString();
 
-                tagWPRepository.save(TagWP.builder().tagId(id).tagName(name).build());
+
+                tagWPRepository.save(TagWP.builder()
+                    .tagId(id)
+                    .tagName(name)
+//                    .locale(locale) // ✅ Set locale
+//                    .translatedId(translatedId) // ✅ Set translated version ID
+                    .build());
             }
             page++;
         }
@@ -121,7 +167,9 @@ public class WooCommerceDownloadScheduler {
             String url = wcBaseUrl + "/products?per_page=100&page=" + page;
             JsonArray itemsArray = fetchJsonArray(url);
 
-            if (itemsArray == null || itemsArray.size() == 0) break;
+            if (itemsArray == null || itemsArray.size() == 0) {
+                break;
+            }
 
             for (JsonElement element : itemsArray) {
                 JsonObject prod = element.getAsJsonObject();
@@ -203,7 +251,9 @@ public class WooCommerceDownloadScheduler {
                     for (JsonElement metaElement : metaDataArray) {
                         JsonObject metaObj = metaElement.getAsJsonObject();
                         String key = metaObj.get("key").getAsString();
-                        if (!metaObj.has("value") || metaObj.get("value").isJsonNull()) continue;
+                        if (!metaObj.has("value") || metaObj.get("value").isJsonNull()) {
+                            continue;
+                        }
 
                         String value = metaObj.get("value").getAsString();
                         switch (key) {
@@ -250,6 +300,8 @@ public class WooCommerceDownloadScheduler {
                 item.setCreatedAt(createdAt);
                 item.setUpdatedAt(updatedAt);
                 item.setIsExistingInWP(true);
+//                item.setLocale(locale); // ✅ Set locale
+//                item.setTranslatedId(translatedId); // ✅ Set translated version
 
                 itemWPRepository.save(item);
             }
@@ -279,7 +331,9 @@ public class WooCommerceDownloadScheduler {
                 }
 
                 JsonArray mediaArray = JsonParser.parseString(response.body().string()).getAsJsonArray();
-                if (mediaArray.size() == 0) break;
+                if (mediaArray.size() == 0) {
+                    break;
+                }
 
                 for (JsonElement element : mediaArray) {
                     JsonObject mediaObj = element.getAsJsonObject();
