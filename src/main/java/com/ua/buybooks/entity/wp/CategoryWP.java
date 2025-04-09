@@ -58,3 +58,4 @@ public class CategoryWP {
     @Column(name = "is_different_from_wordpress")
     private boolean isDifferentFromWordpress;
 }
+

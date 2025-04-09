@@ -1,5 +1,7 @@
 package com.ua.buybooks.util;
 
+import java.text.Normalizer;
+
 import com.ua.buybooks.util.constants.CountryCode;
 
 public class LangUtils {
@@ -20,4 +22,14 @@ public class LangUtils {
         return text != null && text.matches(".*[а-яА-Я].*");
     }
 
+    public static boolean areCategoryNamesEqual(String name1, String name2) {
+        return normalizeText(name1).equalsIgnoreCase(normalizeText(name2));
+    }
+
+    public static String normalizeText(String text) {
+        return Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFD)
+            .replaceAll("\\p{Punct}", " ") // Remove punctuation
+            .replaceAll("\\s+", " ") // Replace multiple spaces with a single space
+            .trim();
+    }
 }

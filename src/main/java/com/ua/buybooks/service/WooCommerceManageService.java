@@ -47,135 +47,111 @@ public class WooCommerceManageService {
     @Value("${wp.admin.app-password}")
     private String wpAdminAppPassword;
 
+    public void deleteCategoryFromWooCommerce(Long categoryWpId) {
+        if (categoryWpId == null) {
+            System.err.println("❌ Category ID is null. Cannot delete.");
+            return;
+        }
+
+        try {
+            String url = wcBaseUrl + "/products/categories/" + categoryWpId + "?force=true";
+
+            Request request = new Request.Builder()
+                .url(url)
+                .delete()
+                .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+            Response response = okHttpClient.newCall(request).execute();
+            String responseBody = response.body().string();
+
+            if (response.isSuccessful()) {
+                System.out.println("✅ Category ID " + categoryWpId + " deleted successfully.");
+            } else {
+                System.err.println("❌ Failed to delete category ID " + categoryWpId + ". Error: " + responseBody);
+            }
+
+        } catch (IOException e) {
+            System.err.println("❌ Exception while deleting category ID " + categoryWpId + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void uploadCategoryToWooCommerce(CategoryWP categoryToUpload) {
         try {
-            boolean isUpdate = categoryToUpload.getCategoryWordpressId() != null; // ✅ Check categoryWordpressId instead of categoryId
-            String url = wcBaseUrl + "/products/categories"; // ✅ Correct base URL
+            boolean isUpdate = categoryToUpload.getCategoryWordpressId() != null;
+            String url = wcBaseUrl + "/products/categories";
 
             JsonObject categoryJson = new JsonObject();
             categoryJson.addProperty("name", categoryToUpload.getCategoryName());
+
+            if (categoryToUpload.getSlug() != null) {
+                categoryJson.addProperty("slug", categoryToUpload.getSlug());
+            }
+
+            if (categoryToUpload.getDescription() != null) {
+                categoryJson.addProperty("description", categoryToUpload.getDescription());
+            }
 
             if (categoryToUpload.getParentCategoryId() != null) {
                 categoryJson.addProperty("parent", categoryToUpload.getParentCategoryId());
             }
 
             if (categoryToUpload.getLocale() != null) {
-                categoryJson.addProperty("lang", categoryToUpload.getLocale());
+                categoryJson.addProperty("lang", categoryToUpload.getLocale()); // ✅ For Polylang Pro
             }
 
-            if (categoryToUpload.getTranslatedCategoryId() != null) {
-//                {
-//                    "key": "_pll_translation_group",
-//                    "value": 70
+            // 🔹 Optional: Image upload (Woo expects image ID, not URL)
+//            if (categoryToUpload.getPhotoUri() != null) {
+//                try {
+//                    long imageId = Long.parseLong(categoryToUpload.getPhotoUri());
+//                    JsonObject imageJson = new JsonObject();
+//                    imageJson.addProperty("id", imageId);
+//                    categoryJson.add("image", imageJson);
+//                } catch (NumberFormatException e) {
+//                    System.err.println("⚠️ Skipping photoUri: not a valid image ID: " + categoryToUpload.getPhotoUri());
 //                }
-                JsonArray metaData = new JsonArray();
-                JsonObject translationMeta = new JsonObject();
-                translationMeta.addProperty("key", "_pll_translation_group");
-                translationMeta.addProperty("value", categoryToUpload.getTranslatedCategoryId());
-                metaData.add(translationMeta);
-                categoryJson.add("meta_data", metaData);
+//            }
 
-//               "translations":{"ru":70}
-//                JsonObject translations = new JsonObject();
-//                translations.addProperty(categoryToUpload.getLocale(), categoryToUpload.getTranslatedCategoryId()); // 🔥 Use correct locale dynamically
-//                categoryJson.add("translations", translations);
-            }
+            // 🔹 Prepare request body string and log it
+            String jsonBodyString = categoryJson.toString();
+            RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"),
+                jsonBodyString
+            );
 
-            RequestBody body = RequestBody.create(MediaType.parse("application/json"), categoryJson.toString());
             Request.Builder requestBuilder = new Request.Builder()
                 .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
                 .addHeader("Content-Type", "application/json");
 
             if (isUpdate) {
-                url += "/" + categoryToUpload.getCategoryWordpressId(); // ✅ Use categoryWordpressId for updates
-                requestBuilder.url(url).put(body); // ✅ Update existing category
-                updateCategoryTranslation(
-                    categoryToUpload.getCategoryWordpressId(),
-                    getOpositeLocale(categoryToUpload.getLocale()),
-                    categoryToUpload.getTranslatedCategoryId());
+                url += "/" + categoryToUpload.getCategoryWordpressId();
+                requestBuilder.url(url).put(body); // ✅ Update
             } else {
-                requestBuilder.url(url).post(body); // ✅ Create new category
+                requestBuilder.url(url).post(body); // ✅ Create
             }
 
+            // 🔹 Send request
             Request request = requestBuilder.build();
+            System.out.println("🔄 Sending request to WooCommerce: " + request.method() + " " + request.url());
+            System.out.println("📦 Payload: " + jsonBodyString);
+
             Response response = okHttpClient.newCall(request).execute();
             String responseBody = response.body().string();
 
             if (response.isSuccessful()) {
-                System.out.println("✅ Category " + categoryToUpload.getCategoryName() + " uploaded successfully!");
+                System.out.println("✅ Category '" + categoryToUpload.getCategoryName() + "' uploaded successfully.");
             } else {
-                System.err.println("❌ Failed to upload category " + categoryToUpload.getCategoryName() + ". Error: " + responseBody);
+                System.err.println("❌ Failed to upload category '" + categoryToUpload.getCategoryName() + "'. Error: " + responseBody);
             }
+
         } catch (IOException e) {
             System.err.println("❌ Exception while uploading category: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public void updateCategoryTranslation(Long categoryId, String locale, Long translatedCategoryId) {
-        try {
-            String url = wpBaseUrl + "/wp/v2/categories/" + categoryId;
-
-            JsonObject translationJson = new JsonObject();
-            JsonObject translations = new JsonObject();
-            translations.addProperty(locale, translatedCategoryId); // ✅ Example: "ru": 70
-            translationJson.add("translations", translations);
-
-            RequestBody body = RequestBody.create(MediaType.parse("application/json"), translationJson.toString());
-            Request request = new Request.Builder()
-                .url(url)
-                .addHeader("Authorization", Credentials.basic(wpAdminUsername, wpAdminAppPassword))
-                //.addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
-                .addHeader("Content-Type", "application/json")
-                .put(body)
-                .build();
-
-            Response response = okHttpClient.newCall(request).execute();
-            String responseBody = response.body().string();
-
-            if (response.isSuccessful()) {
-                System.out.println("✅ Translation updated for category " + categoryId);
-            } else {
-                System.err.println("❌ Failed to update translation for category " + categoryId + ". Error: " + responseBody);
-            }
-        } catch (IOException e) {
-            System.err.println("❌ Exception while updating translation: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-
-    public boolean deleteCategoryFromWooCommerce(Long categoryWordpressId) {
-        if (categoryWordpressId == null) {
-            System.err.println("❌ Cannot delete category: categoryWordpressId is null.");
-            return false;
-        }
-
-        try {
-            String deleteUrl = wcBaseUrl + "/products/categories/" + categoryWordpressId + "?force=true"; // Force delete
-            String credentials = Credentials.basic(consumerKey, consumerSecret);
-
-            Request deleteRequest = new Request.Builder()
-                .url(deleteUrl)
-                .delete()
-                .addHeader("Authorization", credentials)
-                .build();
-
-            Response deleteResponse = okHttpClient.newCall(deleteRequest).execute();
-
-            if (deleteResponse.isSuccessful()) {
-                System.out.println("✅ Category deleted successfully (ID: " + categoryWordpressId + ")");
-                return true;
-            } else {
-                System.err.println("❌ Failed to delete category (ID: " + categoryWordpressId + "). Error: " + deleteResponse.body().string());
-                return false;
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Error deleting category (ID: " + categoryWordpressId + "): " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
 
     public void uploadItemToWooCommerce(ItemWP item) {
         try {
