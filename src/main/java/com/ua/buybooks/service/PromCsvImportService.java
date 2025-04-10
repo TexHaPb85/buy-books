@@ -1,5 +1,6 @@
 package com.ua.buybooks.service;
 
+import static com.ua.buybooks.util.LangUtils.isUaCategory;
 import static com.ua.buybooks.util.LangUtils.normalizeText;
 import static com.ua.buybooks.util.TransliterationUtil.transliterateRuToEn;
 
@@ -42,8 +43,8 @@ public class PromCsvImportService {
     private final ImageWPRepository imageWPRepository;
     private final TagWPRepository tagWPRepository;
 
-    private final Map<Long, ItemWP> itemCacheById = new ConcurrentHashMap<>();
-    private final List<ItemWP> itemCacheByName = new ArrayList<>();
+    private Map<Long, ItemWP> itemCacheById = new ConcurrentHashMap<>();
+    private Map<String, ItemWP> itemCacheByName = new ConcurrentHashMap<>();
 
     private int numOfNewItems = 0;
     private int numOfUpdatedItems = 0;
@@ -137,45 +138,30 @@ public class PromCsvImportService {
     }
 
     private void preloadItemsFromDB() {
-        List<ItemWP> items = itemWPRepository.findAll();
-        items.forEach(item -> {
+        List<ItemWP> allItems = itemWPRepository.findAll();
+        allItems.forEach(item -> {
             itemCacheById.put(item.getId(), item);
-            itemCacheByName.add(item);
         });
-        System.out.println("✅ Cached " + items.size() + " items from database.");
-    }
-
-    private void processCategoryRecord(CSVRecord record) {
-        try {
-            Long catId = parseItemId(record);
-            String catName = record.get("Назва_групи");
-
-            CategoryWP categoryWP = categoryWPRepository.findByCategoryIdAndCategoryName(catId, catName)
-                .orElse(new CategoryWP());
-            categoryWP.setCategoryId(catId);
-            categoryWP.setCategoryName(catName);
-            categoryWP.setLocale("uk");
-
-        } catch (Exception e) {
-            System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
-            e.printStackTrace();
-        }
+        allItems.forEach(item -> {
+            itemCacheByName.put(normalizeText(item.getOriginalName()), item);
+        });
+        System.out.println("✅ Cached " + allItems.size() + " items from database.");
     }
 
     private void processItemRecord(CSVRecord record) {
+
         try {
             Long itemId = parseItemId(record);
-            String normalizedItemNameRu = normalizeText(record.get("Назва_позиції"));
+            String itemCategoryRU = record.get("Назва_групи");
+            boolean isUaItem = isUaCategory(itemCategoryRU);
+            String originalItemName = isUaItem ? normalizeText(record.get("Назва_позиції_укр")) : normalizeText(record.get("Назва_позиції"));
 
-            // 1️⃣ Search by ID
-            ItemWP matchedItem = findMatchingItemById(itemId, normalizedItemNameRu);
+            ItemWP matchedItem = findMatchingItemById(itemId);
 
-            // 2️⃣ If no exact match by ID, search by name similarity
             if (matchedItem == null) {
-                matchedItem = findMatchingItemByName(normalizedItemNameRu);
+                matchedItem = findMatchingItemByName(originalItemName, itemCategoryRU);
             }
 
-            // 3️⃣ If match found, update; otherwise, insert as new item
             createOrUpdateItem(matchedItem, record);
         } catch (Exception e) {
             System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
@@ -183,59 +169,49 @@ public class PromCsvImportService {
         }
     }
 
-    private ItemWP findMatchingItemById(Long id, String nameRu) {
+    private ItemWP findMatchingItemById(Long id) {
         ItemWP item = itemCacheById.get(id);
-        if (item != null) {
-            if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD) {
-                return item; // ✅ Exact name match
-            } else if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD
-                && hasMatchingCategoryOrImage(item, nameRu)) {
-                logPartialMatch(item, nameRu);
-                return item; // ✅ Partial match with category/image check
-            }
-        }
-        return null;
+        return item;
     }
 
-    private ItemWP findMatchingItemByName(String nameRu) {
-        if (nameRu == null) {
+    private ItemWP findMatchingItemByName(String originalItemName, String itemCategoryRU) {
+        if (originalItemName == null) {
             return null;
         }
-        for (ItemWP item : itemCacheByName) {
-            if (item.getNameRu() == null) {
-                System.err.println("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
-                continue;
-            }
-            if (wordMatchPercentage(item.getNameRu(), nameRu) >= WORD_MATCH_THRESHOLD
-                && hasMatchingCategoryOrImage(item, nameRu)) {
-                logPartialMatch(item, nameRu);
-                System.out.println("⚠️⚠️⚠️ Partial match found: " + item.getId()
-                    + " - Existing: " + item.getNameRu()
-                    + " | New: " + nameRu);
-                return item;
-            }
+        if (this.itemCacheByName.containsKey(originalItemName)) {
+            return this.itemCacheByName.get(originalItemName);
         }
+        // TODO here should be logic to find item after minor name changes
+        // 1. Ignore "Книга" is the beginning
+        // 2. count words matching percentage and category matching
+
+//        for (Map.Entry<String, ItemWP> itemWPEntry : itemCacheByName.entrySet()) {
+//            if (itemWPEntry.getValue().getOriginalName() == null) {
+//                System.err.println("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
+//                continue;
+//            }
+//            if (wordMatchPercentage(item.getOriginalName(), originalItemName) >= WORD_MATCH_THRESHOLD
+//                && hasMatchingCategory(item, itemCategoryRU)) {
+//
+//                System.out.println("⚠️⚠️⚠️ Partial match found: " + item.getId()
+//                    + " - Existing: " + item.getOriginalName()
+//                    + " | New: " + originalItemName);
+//                return item;
+//            }
+//        }
         return null;
     }
 
-    private void logPartialMatch(ItemWP item, String newItemName) {
-        System.out.println("⚠️ Partial match found: " + item.getId()
-            + " - Existing: " + item.getNameRu()
-            + " | New: " + newItemName);
-    }
-
-    private boolean hasMatchingCategoryOrImage(ItemWP item, String nameRu) {
+    private boolean hasMatchingCategory(ItemWP item, String categoryToMatch) {
         return item.getCategories().stream()
-            .anyMatch(cat -> wordMatchPercentage(cat.getCategoryName(), nameRu) >= WORD_MATCH_THRESHOLD)
-            || item.getImages().stream()
-            .anyMatch(img -> wordMatchPercentage(img.getName(), nameRu) >= WORD_MATCH_THRESHOLD);
+            .anyMatch(cat -> wordMatchPercentage(cat.getCategoryName(), categoryToMatch) >= WORD_MATCH_THRESHOLD);
     }
 
-    private void createOrUpdateItem(ItemWP itemToProcess, CSVRecord record) {
+    private ItemWP createOrUpdateItem(ItemWP itemToProcess, CSVRecord record) {
         String itemName = record.get("Назва_позиції");
         String loggingPrefix = "🚀 Inserting new item: ";
         if (itemToProcess != null) {
-            itemName = itemToProcess.getNameRu();
+            itemName = itemToProcess.getOriginalName();
             loggingPrefix = "🔄 Updating existing item: ";
             numOfUpdatedItems++;
         } else {
@@ -244,7 +220,9 @@ public class PromCsvImportService {
         System.out.println(loggingPrefix + itemName);
 
         ItemWP newItem = itemToProcess != null ? itemToProcess : new ItemWP();
-        newItem.setId(parseItemId(record));
+        if (newItem.getId() == null) {
+            newItem.setId(parseItemId(record));
+        }
         newItem.setNameRu(itemName);
         newItem.setNameUa(record.get("Назва_позиції_укр"));
         String transliteratedRuName = transliterateRuToEn(itemName);
@@ -325,7 +303,7 @@ public class PromCsvImportService {
         //newItem.setYoastCanonicalUrl();// if you have multiple posts or pages with similar content, it tells the search engines what URL contains the original content
         //newItem.setYoastSchema();
 
-        itemWPRepository.save(newItem);
+        return itemWPRepository.save(newItem);
     }
 
     private Long extractImageId(String imageUrl) {
@@ -343,7 +321,7 @@ public class PromCsvImportService {
         Set<String> words2 = new HashSet<>(Arrays.asList(normalizeText(text2).split(" ")));
 
         long commonWords = words1.stream().filter(words2::contains).count();
-        return (double) commonWords / Math.max(words1.size(), words2.size());
+        return (double) commonWords / Math.min(words1.size(), words2.size());
     }
 
     private Long parseItemId(CSVRecord record) {

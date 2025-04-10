@@ -15,6 +15,7 @@ import com.ua.buybooks.repo.FailureLogRepository;
 import com.ua.buybooks.repo.wp.ItemWPRepository;
 import com.ua.buybooks.util.DescriptionProcessingUtils;
 import com.ua.buybooks.util.TransliterationUtil;
+import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,40 +27,40 @@ public class ItemService {
     private final FailureLogRepository failureLogRepository;
     private final ItemWPRepository itemWPRepository;
 
-    public void processRecordsProm(List<CSVRecord> records) {
-        int newItems = 0;
-        int updatedItems = 0;
-        int conflicts = 0;
-
-        Map<String, List<ItemWP>> collect = itemWPRepository.findAll()
-            .stream()
-            .collect(Collectors.groupingBy(ItemWP::getNameRu));
-
-        for (CSVRecord record : records) {
-            try {
-                Long itemId = parseItemId(record);
-                String itemNameUa = record.get("Назва_позиції_укр").trim();
-                String itemNameRu = record.get("Назва_позиції").trim();
-                Optional<ItemWP> existingItemOpt = itemWPRepository.findByIdOrNameUaOrNameRu(itemId, itemNameUa, itemNameRu);
-
-                if (existingItemOpt.isPresent()) {
-                    ItemWP existingItem = existingItemOpt.get();
-                    existingItem = mapCsvToItem(record, existingItem);
-                    itemWPRepository.save(existingItem);
-                    updatedItems++;
-                } else {
-                    ItemWP newItem = mapCsvToItem(record, new ItemWP());
-                    itemWPRepository.save(newItem);
-                    newItems++;
-                }
-            } catch (Exception e) {
-                conflicts++;
-                System.err.println("⚠️ Import conflict: " + e.getMessage());
-            }
-        }
-
-        System.out.println("✅ Import completed: " + newItems + " new, " + updatedItems + " updated, " + conflicts + " conflicts.");
-    }
+//    public void processRecordsProm(List<CSVRecord> records) {
+//        int newItems = 0;
+//        int updatedItems = 0;
+//        int conflicts = 0;
+//
+//        Map<String, List<ItemWP>> collect = itemWPRepository.findAll()
+//            .stream()
+//            .collect(Collectors.groupingBy(ItemWP::getNameRu));
+//
+//        for (CSVRecord record : records) {
+//            try {
+//                Long itemId = parseItemId(record);
+//                String itemNameUa = record.get("Назва_позиції_укр").trim();
+//                String itemNameRu = record.get("Назва_позиції").trim();
+//                Optional<ItemWP> existingItemOpt = itemWPRepository.findByIdOrNameUaOrNameRu(itemId, itemNameUa, itemNameRu);
+//
+//                if (existingItemOpt.isPresent()) {
+//                    ItemWP existingItem = existingItemOpt.get();
+//                    existingItem = mapCsvToItem(record, existingItem);
+//                    itemWPRepository.save(existingItem);
+//                    updatedItems++;
+//                } else {
+//                    ItemWP newItem = mapCsvToItem(record, new ItemWP());
+//                    itemWPRepository.save(newItem);
+//                    newItems++;
+//                }
+//            } catch (Exception e) {
+//                conflicts++;
+//                System.err.println("⚠️ Import conflict: " + e.getMessage());
+//            }
+//        }
+//
+//        System.out.println("✅ Import completed: " + newItems + " new, " + updatedItems + " updated, " + conflicts + " conflicts.");
+//    }
 
     private Long parseItemId(CSVRecord record) {
         String itemIdStr = record.get("Код_товару");
@@ -130,11 +131,11 @@ public class ItemService {
         item.setImages(isLengthPermissible(record.get("images"), 4096, "images", id));
         item.setSupplier(record.get("supplier"));
 
-        item.setDescriptionRu(isLengthPermissible(record.get("description_ru"), 10_240, "description_ru", id, "ru", item.getCategory()));
-        item.setDescriptionUa(isLengthPermissible(record.get("description_ua"), 10_240, "description_ua", id, "ua", item.getCategory()));
+        item.setDescriptionRu(isLengthPermissible(record.get("description_ru"), 10_240, "description_ru", id, CountryCode.RU.getCode(), item.getCategory()));
+        item.setDescriptionUa(isLengthPermissible(record.get("description_ua"), 10_240, "description_ua", id, CountryCode.UA.getCode(), item.getCategory()));
 
-        item.setShortDescriptionRu(isLengthPermissible(record.get("short_description_ru"), 4096, "short_description_ru", id, "ru", item.getCategory()));
-        item.setShortDescriptionUa(isLengthPermissible(record.get("short_description_ua"), 4096, "short_description_ua", id, "ua", item.getCategory()));
+        item.setShortDescriptionRu(isLengthPermissible(record.get("short_description_ru"), 4096, "short_description_ru", id, CountryCode.RU.getCode(), item.getCategory()));
+        item.setShortDescriptionUa(isLengthPermissible(record.get("short_description_ua"), 4096, "short_description_ua", id, CountryCode.UA.getCode(), item.getCategory()));
         item.setColor(record.get("color"));
         item.setHtmlTitleRu(record.get("html_title_ru"));
         item.setHtmlTitleUa(record.get("html_title_ua"));
@@ -161,7 +162,7 @@ public class ItemService {
             logFailure(id, null, errorMessage);
             throw new IllegalArgumentException(errorMessage);
         }
-        return language == "ua" ? DescriptionProcessingUtils.processDescriptionUA(value, category) : DescriptionProcessingUtils.processDescriptionRU(value, category);
+        return language == CountryCode.UA.getCode() ? DescriptionProcessingUtils.processDescriptionUA(value, category) : DescriptionProcessingUtils.processDescriptionRU(value, category);
     }
 
     private void logFailure(Long itemId, String itemName, String failureReason) {

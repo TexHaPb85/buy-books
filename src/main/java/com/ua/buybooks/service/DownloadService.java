@@ -24,7 +24,7 @@ import okhttp3.Response;
 
 @Service
 @RequiredArgsConstructor
-public class WooCommerceDownloadService {
+public class DownloadService {
 
     @Value("${wc.api.base-url-woocommerce}")
     private String wcBaseUrl; //https://buy-books.com.ua/wp-json/wc/v3

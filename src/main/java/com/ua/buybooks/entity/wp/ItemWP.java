@@ -20,6 +20,12 @@ public class ItemWP {
     @Column(name = "id")
     private Long id; // ID товару у WordPress (WooCommerce)
 
+    @Column(name = "item_wp_id")
+    private Long itemWordpressId;
+
+    @Column(name = "original_name")
+    private String originalName;
+
     @Column(name = "name_ua")
     private String nameUa; // Назва товару (укр.) → "Заголовок" (title)
 
@@ -110,9 +116,6 @@ public class ItemWP {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // Дата оновлення → "Дата оновлення" (post_modified)
-
-    @Column(name = "is_existing_in_wp", nullable = false)
-    private Boolean isExistingInWP = false; // Флаг чи існує товар у WP чи це новий імпортований
 
     @Column(name = "locale")
     private String locale; // ✅ New: Language code (ru, uk)

@@ -1,23 +1,27 @@
 package com.ua.buybooks.service;
 
-import static com.ua.buybooks.util.DescriptionProcessingUtils.getOpositeLocale;
-
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.ua.buybooks.entity.FailureLog;
 import com.ua.buybooks.entity.wp.CategoryWP;
 import com.ua.buybooks.entity.wp.ImageWP;
 import com.ua.buybooks.entity.wp.ItemWP;
 import com.ua.buybooks.entity.wp.TagWP;
 import com.ua.buybooks.repo.FailureLogRepository;
+import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
 import okhttp3.Credentials;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -26,10 +30,10 @@ import okhttp3.Response;
 
 @Service
 @RequiredArgsConstructor
-public class WooCommerceManageService {
+public class WooCommerceItemsManageService {
 
     private final FailureLogRepository failureLogRepository;
-    private final WooCommerceDownloadService wooCommerceDownloadService;
+    private final DownloadService downloadService;
     private final OkHttpClient okHttpClient;
 
     @Value("${wc.api.base-url-woocommerce}")
@@ -46,112 +50,6 @@ public class WooCommerceManageService {
     private String wpAdminUsername;
     @Value("${wp.admin.app-password}")
     private String wpAdminAppPassword;
-
-    public void deleteCategoryFromWooCommerce(Long categoryWpId) {
-        if (categoryWpId == null) {
-            System.err.println("❌ Category ID is null. Cannot delete.");
-            return;
-        }
-
-        try {
-            String url = wcBaseUrl + "/products/categories/" + categoryWpId + "?force=true";
-
-            Request request = new Request.Builder()
-                .url(url)
-                .delete()
-                .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
-                .addHeader("Content-Type", "application/json")
-                .build();
-
-            Response response = okHttpClient.newCall(request).execute();
-            String responseBody = response.body().string();
-
-            if (response.isSuccessful()) {
-                System.out.println("✅ Category ID " + categoryWpId + " deleted successfully.");
-            } else {
-                System.err.println("❌ Failed to delete category ID " + categoryWpId + ". Error: " + responseBody);
-            }
-
-        } catch (IOException e) {
-            System.err.println("❌ Exception while deleting category ID " + categoryWpId + ": " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    public void uploadCategoryToWooCommerce(CategoryWP categoryToUpload) {
-        try {
-            boolean isUpdate = categoryToUpload.getCategoryWordpressId() != null;
-            String url = wcBaseUrl + "/products/categories";
-
-            JsonObject categoryJson = new JsonObject();
-            categoryJson.addProperty("name", categoryToUpload.getCategoryName());
-
-            if (categoryToUpload.getSlug() != null) {
-                categoryJson.addProperty("slug", categoryToUpload.getSlug());
-            }
-
-            if (categoryToUpload.getDescription() != null) {
-                categoryJson.addProperty("description", categoryToUpload.getDescription());
-            }
-
-            if (categoryToUpload.getParentCategoryId() != null) {
-                categoryJson.addProperty("parent", categoryToUpload.getParentCategoryId());
-            }
-
-            if (categoryToUpload.getLocale() != null) {
-                categoryJson.addProperty("lang", categoryToUpload.getLocale()); // ✅ For Polylang Pro
-            }
-
-            // 🔹 Optional: Image upload (Woo expects image ID, not URL)
-//            if (categoryToUpload.getPhotoUri() != null) {
-//                try {
-//                    long imageId = Long.parseLong(categoryToUpload.getPhotoUri());
-//                    JsonObject imageJson = new JsonObject();
-//                    imageJson.addProperty("id", imageId);
-//                    categoryJson.add("image", imageJson);
-//                } catch (NumberFormatException e) {
-//                    System.err.println("⚠️ Skipping photoUri: not a valid image ID: " + categoryToUpload.getPhotoUri());
-//                }
-//            }
-
-            // 🔹 Prepare request body string and log it
-            String jsonBodyString = categoryJson.toString();
-            RequestBody body = RequestBody.create(
-                MediaType.parse("application/json"),
-                jsonBodyString
-            );
-
-            Request.Builder requestBuilder = new Request.Builder()
-                .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
-                .addHeader("Content-Type", "application/json");
-
-            if (isUpdate) {
-                url += "/" + categoryToUpload.getCategoryWordpressId();
-                requestBuilder.url(url).put(body); // ✅ Update
-            } else {
-                requestBuilder.url(url).post(body); // ✅ Create
-            }
-
-            // 🔹 Send request
-            Request request = requestBuilder.build();
-            System.out.println("🔄 Sending request to WooCommerce: " + request.method() + " " + request.url());
-            System.out.println("📦 Payload: " + jsonBodyString);
-
-            Response response = okHttpClient.newCall(request).execute();
-            String responseBody = response.body().string();
-
-            if (response.isSuccessful()) {
-                System.out.println("✅ Category '" + categoryToUpload.getCategoryName() + "' uploaded successfully.");
-            } else {
-                System.err.println("❌ Failed to upload category '" + categoryToUpload.getCategoryName() + "'. Error: " + responseBody);
-            }
-
-        } catch (IOException e) {
-            System.err.println("❌ Exception while uploading category: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
 
     public void uploadItemToWooCommerce(ItemWP item) {
         try {
@@ -226,7 +124,7 @@ public class WooCommerceManageService {
             // ✅ Polylang Translations
             JsonObject translations = new JsonObject();
             if (item.getTranslatedId() != null) {
-                translations.addProperty(item.getLocale().equals("ru") ? "uk" : "ru", item.getTranslatedId());
+                translations.addProperty(item.getLocale().equals(CountryCode.RU.getCode()) ? CountryCode.UA.getCode() : CountryCode.RU.getCode(), item.getTranslatedId());
             }
             product.add("translations", translations);
 
@@ -258,6 +156,83 @@ public class WooCommerceManageService {
             e.printStackTrace();
         }
     }
+
+    public void deleteProductAndImagesFromWooCommerce(Long productId) {
+        try {
+            String productUrl = wcBaseUrl + "/products/" + productId;
+            Request getProductRequest = new Request.Builder()
+                .url(productUrl)
+                .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
+                .get()
+                .build();
+
+            Response getResponse = okHttpClient.newCall(getProductRequest).execute();
+            String productBody = getResponse.body().string();
+
+            if (!getResponse.isSuccessful()) {
+                System.err.println("❌ Failed to fetch product " + productId + " before deletion. Response: " + productBody);
+                return;
+            }
+
+            JsonObject productJson = JsonParser.parseString(productBody).getAsJsonObject();
+
+            // ✅ Step 1: Extract image IDs
+            List<Long> imageIds = new ArrayList<>();
+            if (productJson.has("images")) {
+                JsonArray images = productJson.getAsJsonArray("images");
+                for (JsonElement imageElement : images) {
+                    JsonObject image = imageElement.getAsJsonObject();
+                    if (image.has("id")) {
+                        imageIds.add(image.get("id").getAsLong());
+                    }
+                }
+            }
+
+            // ✅ Step 2: Delete product
+            HttpUrl deleteProductUrl = HttpUrl.parse(productUrl).newBuilder()
+                .addQueryParameter("force", "true")
+                .build();
+
+            Request deleteProductRequest = new Request.Builder()
+                .url(deleteProductUrl)
+                .addHeader("Authorization", Credentials.basic(consumerKey, consumerSecret))
+                .delete()
+                .build();
+
+            Response deleteResponse = okHttpClient.newCall(deleteProductRequest).execute();
+            String deleteProductResponse = deleteResponse.body().string();
+
+            if (deleteResponse.isSuccessful()) {
+                System.out.println("🗑️ Product " + productId + " deleted successfully.");
+            } else {
+                System.err.println("❌ Failed to delete product " + productId + ". Response: " + deleteProductResponse);
+            }
+
+            // ✅ Step 3: Delete associated images
+            for (Long imageId : imageIds) {
+                String mediaUrl = wpBaseUrl + "/media/" + imageId + "?force=true";
+                Request deleteImageRequest = new Request.Builder()
+                    .url(mediaUrl)
+                    .addHeader("Authorization", Credentials.basic(wpAdminUsername, wpAdminAppPassword))
+                    .delete()
+                    .build();
+
+                Response imageResponse = okHttpClient.newCall(deleteImageRequest).execute();
+                String imageResponseBody = imageResponse.body().string();
+
+                if (imageResponse.isSuccessful()) {
+                    System.out.println("🗑️ Deleted image ID " + imageId);
+                } else {
+                    System.err.println("⚠️ Failed to delete image ID " + imageId + ". Response: " + imageResponseBody);
+                }
+            }
+
+        } catch (IOException e) {
+            System.err.println("❌ Exception while deleting product or images: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
 
     private void addMetaData(JsonArray metaData, String key, String value) {
         if (value != null && !value.isEmpty()) {

@@ -46,7 +46,7 @@ public class ImportPromCsvController {
     }
 
     @PostMapping("/items/prom")
-    public ResponseEntity<String> importPromCsv(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<String> importPromItemsCsv(@RequestParam("file") MultipartFile file) {
         try (Reader reader = new InputStreamReader(file.getInputStream())) {
             List<CSVRecord> records = CSVFormat.DEFAULT
                 .withHeader(

@@ -101,14 +101,15 @@ public class WooCommerceDownloadScheduler {
                             System.out.println("❌ Error selecting polylang translations for category " + name + " id:" + id
                                 + " error:" + e.getClass() + ":" + e.getMessage());
                         }
-
                     } else {
                         System.out.println("❌ Warning:Category locale data is missing, " + name + " id:" + id);
                     }
-
                     categoryWPRepository.save(CategoryWP.builder()
                         .categoryId(id)
                         .categoryWordpressId(id)
+                        .slug(cat.get("slug").getAsString())
+                        .description(cat.get("description").getAsString())
+                        .photoUri(cat.get("image").isJsonNull() ? null : cat.get("image").getAsJsonObject().get("src").getAsString())
                         .categoryName(name)
                         .locale(locale) // ✅ Set locale
                         .translatedCategoryId(translatedId) // ✅ Set translated version ID
@@ -174,7 +175,7 @@ public class WooCommerceDownloadScheduler {
             for (JsonElement element : itemsArray) {
                 JsonObject prod = element.getAsJsonObject();
                 int id = prod.get("id").getAsInt();
-                String nameRu = prod.has("name") ? prod.get("name").getAsString() : "";
+                String name = prod.has("name") ? prod.get("name").getAsString() : "";
                 String slug = prod.has("slug") ? prod.get("slug").getAsString() : "";
                 String descriptionUa = prod.has("description") ? prod.get("description").getAsString() : "";
                 String shortDescriptionUa = prod.has("short_description") ? prod.get("short_description").getAsString() : "";
@@ -282,7 +283,8 @@ public class WooCommerceDownloadScheduler {
                 // Save ItemWP entity
                 ItemWP item = new ItemWP();
                 item.setId((long) id);
-                item.setNameRu(nameRu);
+                item.setItemWordpressId((long) id);
+                item.setOriginalName(name);
                 item.setSlug(slug);
                 item.setDescriptionRu(descriptionUa);
                 item.setShortDescriptionRu(shortDescriptionUa);
@@ -299,7 +301,6 @@ public class WooCommerceDownloadScheduler {
                 item.setYoastSchema(yoastSchema);
                 item.setCreatedAt(createdAt);
                 item.setUpdatedAt(updatedAt);
-                item.setIsExistingInWP(true);
 //                item.setLocale(locale); // ✅ Set locale
 //                item.setTranslatedId(translatedId); // ✅ Set translated version
 

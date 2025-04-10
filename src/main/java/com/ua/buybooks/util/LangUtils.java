@@ -22,6 +22,11 @@ public class LangUtils {
         return text != null && text.matches(".*[а-яА-Я].*");
     }
 
+    public static boolean isUaCategory(String category) {
+        String uaCategoryName = "Книги на Украинском";
+        return category.equalsIgnoreCase(uaCategoryName);
+    }
+
     public static boolean areCategoryNamesEqual(String name1, String name2) {
         return normalizeText(name1).equalsIgnoreCase(normalizeText(name2));
     }
