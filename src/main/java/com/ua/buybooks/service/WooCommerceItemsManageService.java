@@ -20,6 +20,7 @@ import com.ua.buybooks.repo.FailureLogRepository;
 import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Credentials;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -29,7 +30,8 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
+@Slf4j
 public class WooCommerceItemsManageService {
 
     private final FailureLogRepository failureLogRepository;
@@ -170,7 +172,7 @@ public class WooCommerceItemsManageService {
             String productBody = getResponse.body().string();
 
             if (!getResponse.isSuccessful()) {
-                System.err.println("❌ Failed to fetch product " + productId + " before deletion. Response: " + productBody);
+                log.error("❌ Failed to fetch product " + productId + " before deletion. Response: " + productBody);
                 return;
             }
 
@@ -203,9 +205,9 @@ public class WooCommerceItemsManageService {
             String deleteProductResponse = deleteResponse.body().string();
 
             if (deleteResponse.isSuccessful()) {
-                System.out.println("🗑️ Product " + productId + " deleted successfully.");
+                log.info("🗑️ Product " + productId + " deleted successfully.");
             } else {
-                System.err.println("❌ Failed to delete product " + productId + ". Response: " + deleteProductResponse);
+                log.error("❌ Failed to delete product " + productId + ". Response: " + deleteProductResponse);
             }
 
             // ✅ Step 3: Delete associated images
@@ -221,14 +223,14 @@ public class WooCommerceItemsManageService {
                 String imageResponseBody = imageResponse.body().string();
 
                 if (imageResponse.isSuccessful()) {
-                    System.out.println("🗑️ Deleted image ID " + imageId);
+                    log.info("🗑️ Deleted image ID " + imageId);
                 } else {
-                    System.err.println("⚠️ Failed to delete image ID " + imageId + ". Response: " + imageResponseBody);
+                    log.error("⚠️ Failed to delete image ID " + imageId + ". Response: " + imageResponseBody);
                 }
             }
 
         } catch (IOException e) {
-            System.err.println("❌ Exception while deleting product or images: " + e.getMessage());
+            log.error("❌ Exception while deleting product or images: " + e.getMessage());
             e.printStackTrace();
         }
     }

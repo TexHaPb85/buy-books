@@ -1,10 +1,5 @@
 package com.ua.buybooks.service;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
 
@@ -18,10 +13,12 @@ import com.ua.buybooks.util.TransliterationUtil;
 import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
+@Slf4j
 public class ItemService {
 
     private final FailureLogRepository failureLogRepository;
@@ -55,11 +52,11 @@ public class ItemService {
 //                }
 //            } catch (Exception e) {
 //                conflicts++;
-//                System.err.println("⚠️ Import conflict: " + e.getMessage());
+//                log.error("⚠️ Import conflict: " + e.getMessage());
 //            }
 //        }
 //
-//        System.out.println("✅ Import completed: " + newItems + " new, " + updatedItems + " updated, " + conflicts + " conflicts.");
+//        log.info("✅ Import completed: " + newItems + " new, " + updatedItems + " updated, " + conflicts + " conflicts.");
 //    }
 
     private Long parseItemId(CSVRecord record) {

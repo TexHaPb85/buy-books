@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.ua.buybooks.entity.wp.CategoryWP;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Credentials;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -17,7 +18,8 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
+@Slf4j
 public class WooCommerceCategoriesManageService {
     private final DownloadService downloadService;
     private final OkHttpClient okHttpClient;
@@ -39,7 +41,7 @@ public class WooCommerceCategoriesManageService {
 
     public void deleteCategoryFromWooCommerce(Long categoryWpId) {
         if (categoryWpId == null) {
-            System.err.println("❌ Category ID is null. Cannot delete.");
+            log.error("❌ Category ID is null. Cannot delete.");
             return;
         }
 
@@ -57,13 +59,13 @@ public class WooCommerceCategoriesManageService {
             String responseBody = response.body().string();
 
             if (response.isSuccessful()) {
-                System.out.println("✅ Category ID " + categoryWpId + " deleted successfully.");
+                log.info("✅ Category ID " + categoryWpId + " deleted successfully.");
             } else {
-                System.err.println("❌ Failed to delete category ID " + categoryWpId + ". Error: " + responseBody);
+                log.error("❌ Failed to delete category ID " + categoryWpId + ". Error: " + responseBody);
             }
 
         } catch (IOException e) {
-            System.err.println("❌ Exception while deleting category ID " + categoryWpId + ": " + e.getMessage());
+            log.error("❌ Exception while deleting category ID " + categoryWpId + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -100,7 +102,7 @@ public class WooCommerceCategoriesManageService {
 //                    imageJson.addProperty("id", imageId);
 //                    categoryJson.add("image", imageJson);
 //                } catch (NumberFormatException e) {
-//                    System.err.println("⚠️ Skipping photoUri: not a valid image ID: " + categoryToUpload.getPhotoUri());
+//                    log.error("⚠️ Skipping photoUri: not a valid image ID: " + categoryToUpload.getPhotoUri());
 //                }
 //            }
 
@@ -124,20 +126,20 @@ public class WooCommerceCategoriesManageService {
 
             // 🔹 Send request
             Request request = requestBuilder.build();
-            System.out.println("🔄 Sending request to WooCommerce: " + request.method() + " " + request.url());
-            System.out.println("📦 Payload: " + jsonBodyString);
+            log.info("🔄 Sending request to WooCommerce: " + request.method() + " " + request.url());
+            log.info("📦 Payload: " + jsonBodyString);
 
             Response response = okHttpClient.newCall(request).execute();
             String responseBody = response.body().string();
 
             if (response.isSuccessful()) {
-                System.out.println("✅ Category '" + categoryToUpload.getCategoryName() + "' uploaded successfully.");
+                log.info("✅ Category '" + categoryToUpload.getCategoryName() + "' uploaded successfully.");
             } else {
-                System.err.println("❌ Failed to upload category '" + categoryToUpload.getCategoryName() + "'. Error: " + responseBody);
+                log.error("❌ Failed to upload category '" + categoryToUpload.getCategoryName() + "'. Error: " + responseBody);
             }
 
         } catch (IOException e) {
-            System.err.println("❌ Exception while uploading category: " + e.getMessage());
+            log.error("❌ Exception while uploading category: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -14,10 +14,12 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ua.buybooks.service.ItemService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/items")
 @RequiredArgsConstructor
+@Slf4j
 public class ImportHoroshopCsvController {
     private final ItemService itemService;
 
@@ -39,7 +41,7 @@ public class ImportHoroshopCsvController {
                 try {
                     itemService.processRecord(record);
                 } catch (IllegalArgumentException ex) {
-                    System.out.println("->>>>>>>>>>>>>>>>Import failed: " + ex.getMessage());
+                    log.info("->>>>>>>>>>>>>>>>Import failed: " + ex.getMessage());
                 }
             }
             return "Import successful!";

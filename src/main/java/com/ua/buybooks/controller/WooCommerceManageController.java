@@ -16,10 +16,12 @@ import com.ua.buybooks.service.WooCommerceCategoriesManageService;
 import com.ua.buybooks.service.WooCommerceItemsManageService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/woo-commerce")
 @RequiredArgsConstructor
+@Slf4j
 public class WooCommerceManageController {
 
     private final WooCommerceCategoriesManageService wooCommerceCategoriesManageService;

@@ -16,7 +16,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -27,3 +27,18 @@ logging:
   level:
     org.hibernate.SQL: info
     org.springframework: info
+
+wc:
+  api:
+    base-url-wp:          "https://buy-books.com.ua/wp-json/wp/v2"
+    base-url-woocommerce: "https://buy-books.com.ua/wp-json/wc/v3"
+    consumer-key: "${WC_API_KEY}"
+    consumer-secret: "${WC_API_SECRET}"
+
+wp:
+  admin:
+    username: "${WP_ADMIN_USERNAME}"
+    app-password: "${WP_ADMIN_APP_PASSWORD}"
+
+scheduler:
+  import-enabled: false

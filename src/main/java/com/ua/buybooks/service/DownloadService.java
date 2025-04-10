@@ -17,13 +17,15 @@ import com.ua.buybooks.repo.wp.ImageWPRepository;
 import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
+@Slf4j
 public class DownloadService {
 
     @Value("${wc.api.base-url-woocommerce}")
@@ -66,12 +68,12 @@ public class DownloadService {
                                 ? cat.get("polylang_translations").getAsJsonObject().get(CountryCode.UA.getCode()).getAsLong()
                                 : cat.get("polylang_translations").getAsJsonObject().get(CountryCode.RU.getCode()).getAsLong();
                         } catch (Exception e) {
-                            System.out.println("❌ Error selecting polylang translations for category " + name + " id:" + id
+                            log.info("❌ Error selecting polylang translations for category " + name + " id:" + id
                                 + " error:" + e.getClass() + ":" + e.getMessage());
                         }
 
                     } else {
-                        System.out.println("❌ Warning:Category locale data is missing, " + name + " id:" + id);
+                        log.info("❌ Warning:Category locale data is missing, " + name + " id:" + id);
                     }
 
                     CategoryWP build = CategoryWP.builder()
@@ -83,7 +85,7 @@ public class DownloadService {
                         .build();
                     categories.add(build);
                 } catch (Exception e) {
-                    System.out.println("❌ Error during importing of category " + name + " id:" + id);
+                    log.info("❌ Error during importing of category " + name + " id:" + id);
                     e.printStackTrace();
                 }
             }

@@ -25,13 +25,15 @@ import com.ua.buybooks.repo.wp.TagWPRepository;
 import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
+@Slf4j
 public class WooCommerceDownloadScheduler {
 
     private final OkHttpClient client;
@@ -50,13 +52,20 @@ public class WooCommerceDownloadScheduler {
     @Value("${wp.admin.app-password}")
     private String wpAdminAppPassword;
 
+    @Value("${scheduler.import-enabled:false}")
+    private boolean importEnabled;
+
     @Scheduled(fixedDelay = 60 * 60, initialDelay = 1, timeUnit = TimeUnit.SECONDS)
     public void initWooData() {
+        if (!importEnabled) {
+            log.info("❌ WooCommerce data sync is disabled. Set 'scheduler.import-enabled' to true to enable.");
+            return;
+        }
         syncAllData();
     }
 
     public void syncAllData() {
-        System.out.println("Starting WooCommerce data sync...");
+        log.info("Starting WooCommerce data sync...");
 
         // 1. Load categories
         loadCategories();
@@ -70,7 +79,7 @@ public class WooCommerceDownloadScheduler {
         // 4. Load products
         loadItems();
 
-        System.out.println("WooCommerce data sync completed.");
+        log.info("WooCommerce data sync completed.");
     }
 
     private void loadCategories() {
@@ -98,11 +107,11 @@ public class WooCommerceDownloadScheduler {
                                 ? cat.get("polylang_translations").getAsJsonObject().get(CountryCode.UA.getCode()).getAsLong()
                                 : cat.get("polylang_translations").getAsJsonObject().get(CountryCode.RU.getCode()).getAsLong();
                         } catch (Exception e) {
-                            System.out.println("❌ Error selecting polylang translations for category " + name + " id:" + id
+                            log.info("❌ Error selecting polylang translations for category " + name + " id:" + id
                                 + " error:" + e.getClass() + ":" + e.getMessage());
                         }
                     } else {
-                        System.out.println("❌ Warning:Category locale data is missing, " + name + " id:" + id);
+                        log.info("❌ Warning:Category locale data is missing, " + name + " id:" + id);
                     }
                     categoryWPRepository.save(CategoryWP.builder()
                         .categoryId(id)
@@ -115,7 +124,7 @@ public class WooCommerceDownloadScheduler {
                         .translatedCategoryId(translatedId) // ✅ Set translated version ID
                         .build());
                 } catch (Exception e) {
-                    System.out.println("❌ Error during importing of category " + name + " id:" + id);
+                    log.info("❌ Error during importing of category " + name + " id:" + id);
                     e.printStackTrace();
                 }
             }
@@ -323,11 +332,11 @@ public class WooCommerceDownloadScheduler {
 
             try (Response response = client.newCall(request).execute()) {
                 if (response.code() == 401) {
-                    System.err.println("❌ ERROR: Unauthorized (401). Check your WordPress App Password credentials.");
+                    log.error("❌ ERROR: Unauthorized (401). Check your WordPress App Password credentials.");
                     return;
                 }
                 if (!response.isSuccessful() || response.body() == null) {
-                    System.err.println("❌ ERROR: Failed to fetch media. Response code: " + response.code());
+                    log.error("❌ ERROR: Failed to fetch media. Response code: " + response.code());
                     return;
                 }
 

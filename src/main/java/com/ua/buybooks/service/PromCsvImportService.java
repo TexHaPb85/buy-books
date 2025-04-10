@@ -3,6 +3,7 @@ package com.ua.buybooks.service;
 import static com.ua.buybooks.util.LangUtils.isUaCategory;
 import static com.ua.buybooks.util.LangUtils.normalizeText;
 import static com.ua.buybooks.util.TransliterationUtil.transliterateRuToEn;
+import static com.ua.buybooks.util.constants.Constants.WORD_MATCH_THRESHOLD;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,12 +33,13 @@ import com.ua.buybooks.util.TransliterationUtil;
 import com.ua.buybooks.util.constants.CountryCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PromCsvImportService {
 
-    private static final double WORD_MATCH_THRESHOLD = 0.9; // 90% match required
     private final ItemWPRepository itemWPRepository;
     private final CategoryWPRepository categoryWPRepository;
     private final ImageWPRepository imageWPRepository;
@@ -105,13 +107,13 @@ public class PromCsvImportService {
             if (LangUtils.isUaText(categoryUa.getCategoryName())) {
                 categoryWPRepository.save(categoryUa);
             } else {
-                System.out.println("❌ Warning: Category name is not in Ukrainian: " + categoryUa.getCategoryName());
+                log.info("❌ Warning: Category name is not in Ukrainian: " + categoryUa.getCategoryName());
             }
 
             if (LangUtils.isRuText(categoryRu.getCategoryName())) {
                 categoryWPRepository.save(categoryRu);
             } else {
-                System.out.println("❌ Warning: Category name is not in Russian: " + categoryRu.getCategoryName());
+                log.info("❌ Warning: Category name is not in Russian: " + categoryRu.getCategoryName());
             }
         }
     }
@@ -119,10 +121,10 @@ public class PromCsvImportService {
 
     @Transactional
     public void processItemRecordsProm(List<CSVRecord> records) {
-        System.out.println("🔄 Preloading items into cache...");
+        log.info("🔄 Preloading items into cache...");
         preloadItemsFromDB();
 
-        System.out.println("🚀 Processing " + records.size() + " records in parallel...");
+        log.info("🚀 Processing " + records.size() + " records in parallel...");
 //        ForkJoinPool customThreadPool = new ForkJoinPool(10); // Use 10 threads
 //        customThreadPool.submit(() ->
 //            records.parallelStream().forEach(this::processRecord)
@@ -130,9 +132,9 @@ public class PromCsvImportService {
 
         records.forEach(this::processItemRecord);
 
-        System.out.println("✅ Import completed.");
-        System.out.println("🆕 New items: " + numOfNewItems);
-        System.out.println("🔄 Updated items: " + numOfUpdatedItems);
+        log.info("✅ Import completed.");
+        log.info("🆕 New items: " + numOfNewItems);
+        log.info("🔄 Updated items: " + numOfUpdatedItems);
         numOfNewItems = 0;
         numOfUpdatedItems = 0;
     }
@@ -145,7 +147,7 @@ public class PromCsvImportService {
         allItems.forEach(item -> {
             itemCacheByName.put(normalizeText(item.getOriginalName()), item);
         });
-        System.out.println("✅ Cached " + allItems.size() + " items from database.");
+        log.info("✅ Cached " + allItems.size() + " items from database.");
     }
 
     private void processItemRecord(CSVRecord record) {
@@ -164,7 +166,7 @@ public class PromCsvImportService {
 
             createOrUpdateItem(matchedItem, record);
         } catch (Exception e) {
-            System.err.println("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
+            log.error("❌ Error processing record: " + record.get("Назва_позиції") + " error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -187,13 +189,13 @@ public class PromCsvImportService {
 
 //        for (Map.Entry<String, ItemWP> itemWPEntry : itemCacheByName.entrySet()) {
 //            if (itemWPEntry.getValue().getOriginalName() == null) {
-//                System.err.println("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
+//                log.error("⚠️ Warning: Item name is null in DB for item ID: " + item.getId());
 //                continue;
 //            }
 //            if (wordMatchPercentage(item.getOriginalName(), originalItemName) >= WORD_MATCH_THRESHOLD
 //                && hasMatchingCategory(item, itemCategoryRU)) {
 //
-//                System.out.println("⚠️⚠️⚠️ Partial match found: " + item.getId()
+//                log.info("⚠️⚠️⚠️ Partial match found: " + item.getId()
 //                    + " - Existing: " + item.getOriginalName()
 //                    + " | New: " + originalItemName);
 //                return item;
@@ -217,7 +219,7 @@ public class PromCsvImportService {
         } else {
             numOfNewItems++;
         }
-        System.out.println(loggingPrefix + itemName);
+        log.info(loggingPrefix + itemName);
 
         ItemWP newItem = itemToProcess != null ? itemToProcess : new ItemWP();
         if (newItem.getId() == null) {
@@ -312,7 +314,7 @@ public class PromCsvImportService {
         if (matcher.matches()) {
             return Long.parseLong(matcher.group(1));
         }
-        System.err.println("⚠️ Warning: Could not extract image ID from URL: " + imageUrl);
+        log.error("⚠️ Warning: Could not extract image ID from URL: " + imageUrl);
         return null;
     }
 
